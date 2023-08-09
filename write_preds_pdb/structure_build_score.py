@@ -118,6 +118,40 @@ def frame_to_pos(frames, aatype_idx):
     return pred_pos
 
 
+
+def batched_gather(data, inds, dim=0, no_batch_dims=0):
+    ranges = []
+    for i, s in enumerate(data.shape[:no_batch_dims]):
+        r = torch.arange(s) # torch.arange N
+        r = r.view(*(*((1,) * i), -1, *((1,) * (len(inds.shape) - i - 1)))) # [N, 1]
+        ranges.append(r)
+
+    remaining_dims = [
+        slice(None) for _ in range(len(data.shape) - no_batch_dims)
+    ]
+    remaining_dims[dim - no_batch_dims if dim >= 0 else dim] = inds
+    ranges.extend(remaining_dims) # [Tensor(N,1), Tensor(N,37), slice(None)]
+    return data[ranges] # [N, 37, 3]
+
+def atom14_to_atom37_batched(atom14, aa_idx):  # atom14: [*, N, 14, 3]
+
+    restype_atom37_to_atom14 = make_atom14_37_list()  # 注意有错
+
+    residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
+    # [N, 37]
+    atom37_mask = restype_atom37_mask[aa_idx]
+
+    # [N, 37, 3]
+    atom37 = batched_gather(atom14,
+                            residx_atom37_to_14,
+                            dim=-2,
+                            no_batch_dims=len(atom14.shape[:-2])
+                            )
+    atom37 = atom37 * atom37_mask[..., None]
+
+    return atom37
+
+
 def batch_gather(data,  # [N, 14, 3]
                  indexing):  # [N,37]
     ranges = []
@@ -400,7 +434,7 @@ def rigids_to_torsion_angles(
     """
     all_pos = frame_to_pos(rigids, aatype_idx)
     # [*, N, 37, 3]
-    all_atom_positions = atom14_to_atom37(all_pos, aatype_idx)
+    all_atom_positions = atom14_to_atom37_batched(all_pos, aatype_idx)
 
     # [*, N_res, 37] atom position mask
     all_atom_mask = restype_atom37_mask[aatype_idx]

@@ -80,6 +80,10 @@ def p_sample_loop_score(
         print('======perturb_sin_cos=====',perturb_sin_cos.shape)
         rigids, current_local_frame = rigid_apply_update(seq, bb_to_gb, perturb_sin_cos, current_local_frame)
         print('======seq=====',seq.shape)
+        
+        print('=======rigid rot==================',rigids.rot.shape)
+        print('=======rigid tra==================',rigids.trans.shape)
+        print('=======rigid==================',rigids.shape)
         torsion_angles = structure_build.rigids_to_torsion_angles(seq, rigids)
         imgs.append(torsion_angles.cpu())
 

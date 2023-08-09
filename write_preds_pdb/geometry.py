@@ -45,6 +45,7 @@ class Rotation:
         """
         if not(isinstance(right, torch.Tensor)):
             raise TypeError("The other multiplicand must be a Tensor")
+        
 
         new_rots = self._rot_mats * right.unsqueeze(-1).unsqueeze(-1) # [128,1,8,3,3] * [128, 14, 8] (3,3)
         return Rotation(new_rots)
