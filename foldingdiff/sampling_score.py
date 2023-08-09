@@ -22,223 +22,6 @@ from foldingdiff import modelling_score as modelling
 from write_preds_pdb import structure_build_score as structure_build, \
     geometry
 
-
-@torch.no_grad()
-def p_sample(
-    model: nn.Module,
-    x: torch.Tensor,
-    coords:torch.Tensor,
-    seq: torch.Tensor,
-    t: torch.Tensor,
-    chi_mask: torch.Tensor,
-    acid_embedding: torch.Tensor,
-    rigid_type: torch.Tensor,
-    rigid_property: torch.Tensor,
-    seq_lens: Sequence[int],
-    t_index: torch.Tensor,
-    betas: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Sample the given timestep. Note that this _may_ fall off the manifold if we just
-    feed the output back into itself repeatedly, so we need to perform modulo on it
-    (see p_sample_loop)
-
-    """
-    # Calculate alphas and betas
-    alpha_beta_values = beta_schedules.compute_alphas(betas) # alpha_beta_values
-    sqrt_recip_alphas = 1.0 / torch.sqrt(alpha_beta_values["alphas"]) # alpha_beta_values["alphas"] ======= [alpha_t]
-
-    # Select based on time
-    t_unique = torch.unique(t) # t has to be single value?
-    assert len(t_unique) == 1, f"Got multiple values for t: {t_unique}"
-    t_index = t_unique.item()
-    sqrt_recip_alphas_t = sqrt_recip_alphas[t_index]
-    betas_t = betas[t_index]
-    sqrt_one_minus_alphas_cumprod_t = alpha_beta_values[
-        "sqrt_one_minus_alphas_cumprod"
-    ][t_index]
-    
-   # print("==================coords====================",coords.shape)
-   # print("==================t====================",t.shape)
-   # print("==================x====================",x.shape)
-    # Create the attention mask
-    attn_mask = torch.zeros(x.shape[:2], device=x.device)
-    for i, l in enumerate(seq_lens):
-        attn_mask[i, :l] = 1.0
-
-    # Equation 11 in the paper
-    # Use our model (noise predictor) to predict the mean
-    model_mean = sqrt_recip_alphas_t * (x - betas_t * model(x, coords, seq, t, chi_mask, acid_embedding, rigid_type, rigid_property)/ sqrt_one_minus_alphas_cumprod_t)
-
-    if t_index == 0:
-        return model_mean
-    else:
-        posterior_variance_t = alpha_beta_values["posterior_variance"][t_index]
-        noise = torch.randn_like(x)
-        # Algorithm 2 line 4:
-        return model_mean + torch.sqrt(posterior_variance_t) * noise
-
-
-@torch.no_grad()
-def p_sample_x_0(
-        model: nn.Module,
-        x: torch.Tensor,
-        coords: torch.Tensor,
-        seq: torch.Tensor,
-        t: torch.Tensor, # [Batch]
-        chi_mask: torch.Tensor,
-        acid_embedding: torch.Tensor,
-        rigid_type: torch.Tensor,
-        rigid_property: torch.Tensor,
-        seq_lens: Sequence[int],
-        t_index: torch.Tensor,
-        betas: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Sample the given timestep. Note that this _may_ fall off the manifold if we just
-    feed the output back into itself repeatedly, so we need to perform modulo on it
-    (see p_sample_loop)
-
-    """
-    # Calculate alphas and betas
-    alpha_beta_values = beta_schedules.compute_alphas(betas)  # alpha_beta_values
-    sqrt_alpha = torch.sqrt(alpha_beta_values["alphas"])
-    sqrt_alphas_cumprod_prev = torch.sqrt(alpha_beta_values["alphas_cumprod_prev"])
-
-    # Select based on time
-    t_unique = torch.unique(t)
-    assert len(t_unique) == 1, f"Got multiple values for t: {t_unique}"
-    t_index = t_unique.item()
-    sqrt_alpha_t = sqrt_alpha[t_index]
-    sqrt_alphas_cumprod_prev_t = sqrt_alphas_cumprod_prev[t_index]
-    alphas_cumprod_t = alpha_beta_values["alphas_cumprod"][t_index]
-    alphas_cumprod_prev_t = alpha_beta_values["alphas_cumprod_prev"][t_index]
-    betas_t = betas[t_index]
-
-
-
-    # Create the attention mask
-    attn_mask = torch.zeros(x.shape[:2], device=x.device)
-    for i, l in enumerate(seq_lens):
-        attn_mask[i, :l] = 1.0
-
-    # Equation 11 in the paper
-    # Use our model (noise predictor) to predict the mean
-   # print("sqrt_alphas_cumprod_prev_t=",sqrt_alphas_cumprod_prev_t.shape)
-   # print("sqrt_alphas_cumprod_prev_t=",sqrt_alphas_cumprod_prev_t)
-   # print("betas_t=",betas_t.shape)
-   # print("betas_t=",betas_t)
-   # print("alphas_cumprod_t=",alphas_cumprod_t.shape)
-   # print("alphas_cumprod_t=",alphas_cumprod_t)
-   # print("sqrt_alpha_t=",sqrt_alpha_t.shape)
-   # print("sqrt_alpha_t=",sqrt_alpha_t)
-   # print(" alphas_cumprod_t=", alphas_cumprod_t.shape)
-   # print(" alphas_cumprod_t=", alphas_cumprod_t)
-   # print(" alphas_cumprod_prev_t=", alphas_cumprod_prev_t.shape)
-   # print(" alphas_cumprod_prev_t=", alphas_cumprod_prev_t)
-    
-    sin_cos = model(x, coords, seq, t, acid_embedding, rigid_type, rigid_property,attn_mask)
-    angles = torch.atan2(sin_cos[...,0],sin_cos[...,1])
-    
-    model_mean = sqrt_alphas_cumprod_prev_t * betas_t * angles / (1 - alphas_cumprod_t) \
-                 + sqrt_alpha_t * (1 - alphas_cumprod_prev_t) * x / (1 - alphas_cumprod_t)
-
-
-    #tempoutput = model(x, coords, seq, t, acid_embedding, rigid_type, rigid_property,attn_mask)
-    #print("tempoutput=", angles.shape)
-    #model_mean = sqrt_alphas_cumprod_prev_t * betas_t * model(x, coords, seq, t, acid_embedding, rigid_type, rigid_property,attn_mask) / (1 - alphas_cumprod_t) \
-    #             + sqrt_alpha_t * (1 - alphas_cumprod_prev_t) * x / (1 - alphas_cumprod_t)
-
-    if t_index == 0:
-        return model_mean
-    else:
-        posterior_variance_t = alpha_beta_values["posterior_variance"][t_index]
-        noise = torch.randn_like(x)
-        # Algorithm 2 line 4:
-        return model_mean + torch.sqrt(posterior_variance_t) * noise
-
-@torch.no_grad()
-def p_sample_loop(
-    model: nn.Module,
-    coords:torch.Tensor,
-    seq: torch.Tensor,
-    chi_mask: torch.Tensor,
-    acid_embedding: torch.Tensor,
-    rigid_type: torch.Tensor,
-    rigid_property: torch.Tensor,
-    lengths: Sequence[int],
-    noise: torch.Tensor,
-    timesteps: int,
-    betas: torch.Tensor,
-    is_angle: Union[bool, List[bool]] = [False, True, True, True],
-    disable_pbar: bool = False,
-) -> torch.Tensor:
-    """
-    Returns a tensor of shape (timesteps, batch_size, seq_len, n_ft)
-    """
-    device = next(model.parameters()).device
-    b = noise.shape[0]
-    img = noise.to(device)
-    # Report metrics on starting noise
-    # amin and amax support reducing on multiple dimensions
-    logging.info(
-        f"Starting from noise {noise.shape} with angularity {is_angle} and range {torch.amin(img, dim=(0, 1))} - {torch.amax(img, dim=(0, 1))} using {device}"
-    )
-
-    imgs = []
-
-    for i in tqdm(
-        reversed(range(0, timesteps)), desc="sampling loop time step", total=timesteps, disable=disable_pbar
-    ):
-        '''
-        # Shape is (batch, seq_len, 4)
-        img = p_sample(
-            model=model,            
-            x=img,
-            coords=coords,
-            seq=seq,
-            t=torch.full((b,), i, device=device, dtype=torch.long), # time vector
-            chi_mask=chi_mask,
-            acid_embedding=acid_embedding,
-            rigid_type=rigid_type,
-            rigid_property=rigid_property,
-            seq_lens=lengths,
-            t_index=i,
-            betas=betas,
-        )
-        '''
-
-        img = p_sample_x_0(
-            model=model,
-            x=img,
-            coords=coords,
-            seq=seq,
-            t=torch.full((b,), i, device=device, dtype=torch.long), # time vector
-            chi_mask=chi_mask,
-            acid_embedding=acid_embedding,
-            rigid_type=rigid_type,
-            rigid_property=rigid_property,
-            seq_lens=lengths,
-            t_index=i,
-            betas=betas,
-        )
-
-        # Wrap if angular
-        if isinstance(is_angle, bool):
-            if is_angle:
-                img = utils.modulo_with_wrapped_range(
-                    img, range_min=-torch.pi, range_max=torch.pi
-                )
-        else:
-            assert len(is_angle) == img.shape[-1]
-            for j in range(img.shape[-1]):
-                if is_angle[j]:
-                    img[:, :, j] = utils.modulo_with_wrapped_range(
-                        img[:, :, j], range_min=-torch.pi, range_max=torch.pi
-                    )
-        imgs.append(img.cpu())
-    return torch.stack(imgs)
-
 def rigid_apply_update(seq, bb_to_gb, delta_chi, current_local):
     return structure_build.torsion_to_frame(seq, bb_to_gb, delta_chi, current_local)
 
@@ -256,8 +39,6 @@ def p_sample_loop_score(
         sigma_max = torch.pi,
         sigma_min=0.01 * np.pi,
         steps=100,
-
-
 ):
     # [*, N_rigid, 4, 2]
     angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
@@ -274,12 +55,15 @@ def p_sample_loop_score(
     eps = 1 / steps
 
     # Create the attention mask
-    pad_mask = torch.zeros(x.shape[:2], device=x.device)
+    pad_mask = torch.zeros(corrupted_angles.shape[:2], device=corrupted_angles.device)
     for i, l in enumerate(seq_lens):
         pad_mask[i, :l] = 1.0
-
+    print('======angles_sin_cos=====',angles_sin_cos.shape)
     imgs = []
-    for sigma_idx, sigma in enumerate(sigma_schedule):
+    #for sigma_idx, sigma in enumerate(sigma_schedule):
+    for sigma in tqdm(sigma_schedule):
+
+        sigma = torch.unsqueeze(sigma, 0).to('cuda')
         score = model(seq,
                       rigids,
                       sigma,
@@ -290,9 +74,12 @@ def p_sample_loop_score(
 
         g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min)))
         z = torch.normal(mean=0, std=1, size= score.shape)
-        perturb = g ** 2 * eps * score + g * np.sqrt(eps) * z
-
-        rigids, current_local_frame = rigid_apply_update(seq, bb_to_gb, perturb, current_local_frame)
+        perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
+        perturb_sin_cos = torch.stack((torch.sin(perturb), torch.cos(perturb)), -1)
+       # perturb_sin_cos = perturb_sin_cos.view(perturb_sin_cos.shape[0],perturb_sin_cos.shape[-2],perturb_sin_cos.shape[-1]/2,2)
+        print('======perturb_sin_cos=====',perturb_sin_cos.shape)
+        rigids, current_local_frame = rigid_apply_update(seq, bb_to_gb, perturb_sin_cos, current_local_frame)
+        print('======seq=====',seq.shape)
         torsion_angles = structure_build.rigids_to_torsion_angles(seq, rigids)
         imgs.append(torsion_angles.cpu())
 
@@ -366,33 +153,28 @@ def sample(
         rigid_property = temp_rp.repeat(batch,1,1,1).cuda()
 
         # [b,n,f]
-        noise = train_dset.sample_noise(
-             torch.zeros((batch,
+        m = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
+        corrupted_angles = m.sample((batch,
                           seq.shape[-1], # sequence length
-                          model.n_inputs), # number of angles need to predict
-                         dtype=torch.float64)
-        )
+                          model.n_inputs))
+
         # Produces (timesteps, batch_size, seq_len, n_ft)
         this_lengths =  [seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1]]
-        sampled = p_sample_loop_score(
-            model=model,
-            coords = coords,
-            seq=seq,
-            chi_mask=chi_mask,
-            acid_embedding=acid_embedding,
-            rigid_type=rigid_type,
-            rigid_property=rigid_property,
-            lengths=this_lengths,
-            noise=noise,
-            timesteps=train_dset.timesteps,
-            betas=train_dset.alpha_beta_terms["betas"],
-            is_angle=train_dset.feature_is_angular[feature_key],
-            disable_pbar=disable_pbar
+        sampled = p_sample_loop_score(model,
+                                      coords,
+                                      seq,
+                                      acid_embedding,
+                                      rigid_type,
+                                      rigid_property,
+                                      this_lengths,
+                                      corrupted_angles,
         )
+
         # Gets to size (timesteps, seq_len, n_ft)
         trimmed_sampled = [
             sampled[:, i, :l, :].numpy() for i, l in enumerate(this_lengths)
         ]
+
         retval.extend(trimmed_sampled)
     # Note that we don't use means variable here directly because we may need a subset
     # of it based on which features are active in the dataset. The function

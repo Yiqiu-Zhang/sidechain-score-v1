@@ -87,7 +87,6 @@ class CathCanonicalAnglesDataset(Dataset):
 
     All angles should be given between [-pi, pi]
     """
-
     feature_names = {
         "angles": [
             "0C:1N",

@@ -23,16 +23,16 @@ from huggingface_hub import snapshot_download
 from train import get_train_valid_test_sets
 from annot_secondary_structures import make_ss_cooccurrence_plot
 
-from foldingdiff import modelling
-from foldingdiff import sampling
+from foldingdiff import modelling_score as modelling
+from foldingdiff import sampling_score as sampling
 from foldingdiff import plotting
-from foldingdiff.datasets import AnglesEmptyDataset, NoisedAnglesDataset
+from foldingdiff.datasets_score import AnglesEmptyDataset, NoisedAnglesDataset
 from foldingdiff.angles_and_coords import create_new_chain_nerf
 from foldingdiff import utils
 
 import glob
 sys.path.append(r"../write_preds_pdb")
-from structure_build import write_preds_pdb_file
+from structure_build_score import write_preds_pdb_file
 
 
 sys.path.append(r"../foldingdiff")

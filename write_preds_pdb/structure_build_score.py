@@ -269,7 +269,7 @@ def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
 
     # [*, N_res, 5]
     frame_mask = restype_frame5_mask[aatype_idx, ...].to('cuda')
-    frame_mask = frame_mask * pad_mask[..., None]
+    frame_mask = frame_mask * pad_mask[..., None].to('cuda')
 
     # [*, N_rigid]
     flat_mask = torch.flatten(frame_mask, start_dim=-2)

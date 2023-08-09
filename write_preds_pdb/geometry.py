@@ -295,11 +295,11 @@ def identity_trans(
 
 def Rigid_mult(rigid_1: Rigid,
                rigid_2: Rigid) -> Rigid:
-    rot1 = rigid_1.rot.get_rot_mat()
-    rot2 = rigid_2.rot.get_rot_mat()
+    rot1 = rigid_1.rot.get_rot_mat().to('cuda')
+    rot2 = rigid_2.rot.get_rot_mat().to('cuda')
 
     new_rot = rot_matmul(rot1, rot2)
-    new_trans = rot_vec(rot1, rigid_2.trans)  + rigid_1.trans
+    new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
 
     return  Rigid(Rotation(new_rot), new_trans)
 
