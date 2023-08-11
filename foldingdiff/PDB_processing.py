@@ -149,7 +149,7 @@ def acid_to_number(seq, mapping):
     return num_list
 
 def get_torsion_seq(pdb_path):
-   # print("===================pdb_path===========================",pdb_path)
+    
     torsion_list = []
     chi_mask =[]
     seq = []

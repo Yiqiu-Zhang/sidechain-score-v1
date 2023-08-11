@@ -19,6 +19,7 @@ from astropy.visualization.mpl_normalize import ImageNormalize
 import torch
 from huggingface_hub import snapshot_download
 
+sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
 # Import data loading code from main training script
 from train import get_train_valid_test_sets
 from annot_secondary_structures import make_ss_cooccurrence_plot
@@ -355,7 +356,7 @@ def main() -> None:
    # psi_idx = test_dset.feature_names["angles"].index("psi")
     # Fetch values for training distribution
     select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
-
+    
     if args.testcomparison: #false
         test_values = [
             select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
@@ -373,7 +374,7 @@ def main() -> None:
         )
     else:
         test_values_stacked = None
-
+    
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
     print('==========================lvying===================',args.model)

@@ -1,6 +1,7 @@
 import tqdm
 import torch
 import numpy as np
+import os
 
 X_MIN = torch.tensor(1e-5)
 X_N = 5000   # relative to pi
@@ -24,8 +25,18 @@ def p(x, sigma, N=10):
 x = 10 ** np.linspace(np.log10(X_MIN), 0, X_N + 1) * np.pi # [0, pi]
 sigma = 10 ** np.linspace(np.log10(SIGMA_MIN), np.log10(SIGMA_MAX), SIGMA_N + 1) * np.pi # [0, 2pi]
 
-p_ = p(x, sigma[:, None], N=100)
-score_ = grad(x, sigma[:, None], N=100) / p_
+# sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin")
+
+if os.path.exists('.p.npy'):
+    p_ = np.load('.p.npy')
+    score_ = np.load('.score.npy')
+else:
+    p_ = p(x, sigma[:, None], N=100)
+    np.save('.p.npy', p_)
+
+    score_ = grad(x, sigma[:, None], N=100) / p_
+    np.save('.score.npy', score_)
+
 score_ = torch.tensor(score_)
 p_ = torch.tensor(p_)
 

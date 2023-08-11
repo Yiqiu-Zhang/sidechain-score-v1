@@ -695,10 +695,6 @@ class CathSideChainAnglesDataset(Dataset):
 
     def __compute_featurization_sidechain(self, fnames: Sequence[str]):
 
-        #structures = []
-        
-       # for names in fnames:
-       #     structures.append(dict_structure_pdb(names))
         structures = []
         pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
         structures = list(pool.map(get_torsion_seq,fnames, chunksize=250))
