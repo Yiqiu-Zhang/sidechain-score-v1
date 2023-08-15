@@ -2,7 +2,8 @@
 Script to sample from a trained diffusion model
 """
 import multiprocessing
-import os, sys
+import os, sys, shutil
+
 import argparse
 import logging
 import json
@@ -325,15 +326,20 @@ def get_pdb_data(CATH_DIR):
 
     return structures
 #============================================import data========================================
-
 def main() -> None:
     """Run the script"""
     parser = build_parser()
     args = parser.parse_args()
-
+    outdir = Path(args.outdir)
+    if os.listdir(outdir):
+        try:
+            print(f"Overwrite {outdir} !!!")
+            shutil.rmtree(outdir)
+        except:
+            print(f"Expected {outdir} to be empty!")
     logging.info(f"Creating {args.outdir}")
     os.makedirs(args.outdir, exist_ok=True)
-    outdir = Path(args.outdir)
+    
     # Be extra cautious so we don't overwrite any results
     assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
 
@@ -395,7 +401,6 @@ def main() -> None:
     for structure in structures:
         sweep_min_len, sweep_max_len = args.lengths
         if len(structure['seq'])>128:
-            print('length>128')
             continue
       #  print("=============fname=================",structure['fname'])
       #  print("=============seq=================",structure['seq'])

@@ -30,16 +30,16 @@ def add_esm1b_embedding(structures_no_embedding,batch_size):
             sequence_acid_embedding.append(acid_representations)
 
     j = 0
-    print("=======================sequence_acid_embedding len=================",len(sequence_acid_embedding))
-    print("=======================sequence_acid_embedding[0] shape=================",sequence_acid_embedding[0].shape)
+    #print("=======================sequence_acid_embedding len=================",len(sequence_acid_embedding))
+    #print("=======================sequence_acid_embedding[0] shape=================",sequence_acid_embedding[0].shape)
     for structure in structures: 
         structure.update({'acid_embedding':sequence_acid_embedding[j]})
         j = j + 1
         del structure['seq_temp']
-    print("===========structures len===============",len(structures))
-    print("===========structures key===============",structures[0].keys())
-    print("===========structures len===============",structures[0]['seq'].shape)
-    print("===========structures len===============",structures[0]['acid_embedding'].shape)
+    #print("===========structures len===============",len(structures))
+    #print("===========structures key===============",structures[0].keys())
+    #print("===========structures len===============",structures[0]['seq'].shape)
+    #print("===========structures len===============",structures[0]['acid_embedding'].shape)
     return structures
         
         

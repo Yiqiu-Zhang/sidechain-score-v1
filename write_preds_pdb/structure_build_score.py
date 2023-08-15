@@ -89,7 +89,7 @@ def rotate_sidechain(
 
 def frame_to_pos(frames, aatype_idx):
     # [21 , 14]
-    group_index = torch.tensor(restype_atom14_to_rigid_group)
+    group_index = torch.tensor(restype_atom14_to_rigid_group).to('cuda')
 
     # [21 , 14] idx [*, N] -> [*, N, 14]
     group_mask = group_index[aatype_idx, ...]
@@ -103,12 +103,12 @@ def frame_to_pos(frames, aatype_idx):
     map_atoms_to_global = geometry.map_rigid_fn(map_atoms_to_global)
 
     # [21 , 14]
-    atom_mask = torch.tensor(restype_atom14_mask)
+    atom_mask = torch.tensor(restype_atom14_mask).to('cuda')
     # [*, N, 14, 1]
     atom_mask = atom_mask[aatype_idx, ...].unsqueeze(-1)
 
     # [21, 14, 3]
-    default_pos = torch.tensor(restype_atom14_rigid_group_positions)
+    default_pos = torch.tensor(restype_atom14_rigid_group_positions).to('cuda')
     # [*, N, 14, 3]
     default_pos = default_pos[aatype_idx, ...]
 
@@ -138,8 +138,10 @@ def atom14_to_atom37_batched(atom14, aa_idx):  # atom14: [*, N, 14, 3]
     restype_atom37_to_atom14 = make_atom14_37_list()  # 注意有错
 
     residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
+
     # [N, 37]
-    atom37_mask = restype_atom37_mask[aa_idx]
+    atom37_mask = torch.tensor(restype_atom37_mask).to('cuda')
+    atom37_mask = atom37_mask[aa_idx]
 
     # [N, 37, 3]
     atom37 = batched_gather(atom14,
@@ -149,7 +151,7 @@ def atom14_to_atom37_batched(atom14, aa_idx):  # atom14: [*, N, 14, 3]
                             )
     atom37 = atom37 * atom37_mask[..., None]
 
-    return atom37
+    return atom37, atom37_mask
 
 
 def batch_gather(data,  # [N, 14, 3]
@@ -178,7 +180,8 @@ def atom14_to_atom37(atom14, aa_idx):  # atom14: [*, N, 14, 3]
 
     residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
     # [N, 37]
-    atom37_mask = restype_atom37_mask[aa_idx]
+    atom37_mask = torch.tensor(restype_atom37_mask).to('cuda')
+    atom37_mask = atom37_mask[aa_idx]
 
     # [N, 37, 3]
     # print('atom14===========', atom14.shape)
@@ -244,10 +247,8 @@ def torsion_to_position(aatype_idx: torch.Tensor,  # [*, N]
 
 
 def get_default_r(restype_idx, angles):
-    default_frame = torch.tensor(restype_rigid_group_default_frame,
-                                 dtype=angles.dtype,
-                                 device=angles.device,
-                                 requires_grad=False)
+    default_frame = torch.tensor(restype_rigid_group_default_frame).to('cuda')
+
     # [*, N, 8, 4, 4]
     res_default_frame = default_frame[restype_idx, ...]
 
@@ -276,13 +277,12 @@ def torsion_to_frame(aatype_idx: torch.Tensor,  # [*, N]
     # side chain frames [*, N, 5] Rigid
     # We create 3 dummy identity matrix for omega and other angles which is not used in the frame attention process
     sc_to_bb, current_r = rotate_sidechain(aatype_idx, angles_sin_cos, last_step_r)
-    sc_to_bb = sc_to_bb[..., [0, 4, 5, 6, 7]]
     all_frames_to_global = geometry.Rigid_mult(bb_to_gb[..., None], sc_to_bb)
 
     # [*, N_rigid]
-    flatten_frame = geometry.flatten_rigid(all_frames_to_global)
+    flatten_frame = geometry.flatten_rigid(all_frames_to_global[..., [0, 4, 5, 6, 7]])
 
-    return flatten_frame, current_r
+    return flatten_frame, current_r, all_frames_to_global
 
 
 def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
@@ -342,9 +342,11 @@ def write_preds_pdb_file(structure, sampled_dfs, out_path, fname, j):
 
     coord_list = torch.from_numpy(coord_list)
     angle_list = torch.from_numpy(sampled_dfs)
+    default_r = get_default_r(seq_list, angle_list)
     final_atom_positions = torsion_to_position(seq_list,
                                                coord_list,
-                                               angle_list)
+                                               angle_list,
+                                               default_r)
 
     chain_len = len(seq_list)
     index = np.arange(1, chain_len + 1)
@@ -433,12 +435,9 @@ def rigids_to_torsion_angles(
             Torsion angles mask
     """
     all_pos = frame_to_pos(rigids, aatype_idx)
-    # [*, N, 37, 3]
-    all_atom_positions = atom14_to_atom37_batched(all_pos, aatype_idx)
+    # [*, N, 37, 3], [*, N_res, 37] atom position mask
+    all_atom_positions, all_atom_mask = atom14_to_atom37_batched(all_pos, aatype_idx)
 
-    # [*, N_res, 37] atom position mask
-    all_atom_mask = restype_atom37_mask[aatype_idx]
-    all_atom_mask = torch.tensor(all_atom_mask)
 
     aatype = torch.clamp(aatype_idx, max=20)
 

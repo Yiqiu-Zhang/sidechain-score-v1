@@ -31,6 +31,7 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from transformers import BertConfig
 
+sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
 from foldingdiff import datasets_score as datasets
 from foldingdiff import modelling_score as modelling
 from foldingdiff import losses_score as losses
@@ -395,7 +396,7 @@ def train(
             batch_size=effective_batch_size,
             shuffle=i == 0,  # Shuffle only train loader
             #num_workers=multiprocessing.cpu_count() if multithread else 1,
-            num_workers= 0,
+            num_workers= 220,
             pin_memory=True,
         )
         for i, ds in enumerate(dsets)
@@ -618,7 +619,7 @@ def main():
             "subset": args.toy,
             "single_timestep_debug": args.debug_single_time,
             "cpu_only": args.cpu,
-            "ngpu": 6,
+            "ngpu": 7,
             "dryrun": args.dryrun,
         },
     )    

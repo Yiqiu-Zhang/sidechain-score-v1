@@ -10,6 +10,9 @@ from foldingdiff import utils
 
 from write_preds_pdb import constant, torus_score
 
+SIGMA_MIN= torch.tensor(3e-3)
+SIGMA_MAX = torch.tensor(2)
+SIGMA_N = 5000  # relative to pi
 
 def radian_l1_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -235,7 +238,7 @@ def square_chi_loss_with_periodic(
 
 def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                known_noise: torch.Tensor, # [B,N,4]
-               sigma: torch.Tensor, # sigma [B,1]
+               sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
                mask: torch.Tensor, # [B,N,4]
                 ):
@@ -243,12 +246,30 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     # Without calculating the pi_periodic!!!!!!!!!!!!!!!!!!!
     sigma = sigma.unsqueeze(1)
     assert len(sigma.shape) == 2
-    # [B,N,4]
-    score =torus_score.score(known_noise, sigma[...,None])
 
-    score_norm = torus_score.score_norm(sigma)
+    sigma = torch.log(sigma / torch.pi)
+    sigma = (sigma - torch.log(SIGMA_MIN)) / (torch.log(SIGMA_MAX) - torch.log(SIGMA_MIN)) * SIGMA_N
+    sigma_idx = torch.round(torch.clip(sigma, 0, SIGMA_N)).to(int)
+
+    # [b, L, 21]
+    residue_type_one_hot = F.one_hot(seq, 20 + 1, )
+
+    # [B, L, 4]
+    chi_pi_periodic = torch.einsum(
+        "...ij,jk->ik",
+        residue_type_one_hot.type(predicted_score.dtype),
+        predicted_score.new_tensor(constant.chi_pi_periodic), # [21, 4]
+    ).to(torch.bool).to(known_noise.device)
+
+
+    # [B,N,4]
+    score = torus_score.score(known_noise, sigma_idx[...,None], chi_pi_periodic)
+
+    score_norm = torus_score.score_norm(sigma_idx[...,None], chi_pi_periodic)
+    #score_norm = torus_score.score_norm(sigma_idx)
+
     loss = mask_mean(mask,
-                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm[...,None].to('cuda'),
+                    (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-2, -3))
 
     return loss

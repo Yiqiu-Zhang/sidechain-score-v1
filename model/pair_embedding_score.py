@@ -185,8 +185,7 @@ class PairEmbedder(nn.Module):
                                     pair_transition_n)
         '''
         # Despite there being no relu nearby, the source uses that initializer
-        self.linear_d = nn.Linear(16, c_z)
-        self.linear_1 = nn.Linear(3*c_z, c_z)
+        self.linear_1 = nn.Linear(pair_dim, c_z)
         self.relu = nn.ReLU()
         self.linear_2 = nn.Linear(c_z, c_z)
         self.ln = nn.LayerNorm(c_z)
@@ -195,15 +194,15 @@ class PairEmbedder(nn.Module):
     def forward(
         self,
         distance_rbf: torch.Tensor,
-        nf_pair_emb: torch.Tensor,
+        nf_pair_feature: torch.Tensor,
         relative_pos: torch.Tensor,
         pair_mask: torch.Tensor,
 
     ) -> torch.Tensor:
-        distance_feature = self.linear_d(distance_rbf.float())
+        
+        pair_emb = torch.cat([distance_rbf, nf_pair_feature, relative_pos],dim = -1)
 
-        pair_emb = torch.cat([relative_pos, nf_pair_emb, distance_feature],dim = -1)
-        pair_emb = self.linear_1(pair_emb)
+        pair_emb = self.linear_1(pair_emb.float())
         pair_emb = self.relu(pair_emb)
         pair_emb = self.linear_2(pair_emb)
 

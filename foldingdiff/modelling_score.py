@@ -386,12 +386,11 @@ class AngleDiffusionBase(nn.Module):
 
     def forward(
         self,
-       # corrupted_angles: torch.Tensor, #[batch,128,4]
-       # angles: torch.Tensor, #[batch,128,4]
-       # backbone_coords: torch.Tensor, #[batch,128,4,3]
+        corrupted_angles: torch.Tensor, #[batch,128,4]
+        angles: torch.Tensor, #[batch,128,4]
+        backbone_coords: torch.Tensor, #[batch,128,4,3]
         seq_idx: torch.Tensor,#[batch,128,4]
        # diffusion_mask: torch.Tensor, #[batch,128,4]
-        rigids,
         timestep: torch.Tensor, 
         x_seq_esm: torch.Tensor,  #[batch,128,1024]
         x_rigid_type: torch.Tensor, #[batch,128,5,20] x_rigid_type[-1]=one hot
@@ -410,19 +409,31 @@ class AngleDiffusionBase(nn.Module):
        
         #assert len(corrupted_angles.shape) == 3  # batch_size, seq_length, features
 
+                #diffusion_mask = torch.rand(angles.shape[:-1]) < self.diffusion_fraction
+        #diffusion_mask = diffusion_mask[..., None]
+        #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
 
-        score = self.encoder(
-                          #    corrupted_angles,
-                          #    angles,
-                          #    backbone_coords,
-                              seq_idx,
-                           #   diffusion_mask,
-                              rigids,
-                              timestep,
-                              x_seq_esm,
-                              x_rigid_type, 
-                              x_rigid_proterty,
-                              pad_mask,
+        # [*, N_rigid, 4, 2]
+        angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
+        default_r = structure_build_score.get_default_r(seq_idx, corrupted_angles)
+        # [*, N_res] Rigid
+        bb_to_gb = geometry.get_gb_trans(backbone_coords)
+
+        # [*, N_rigid] Rigid
+        rigids, _, _ = structure_build.torsion_to_frame(seq_idx,
+                                                     bb_to_gb,
+                                                     angles_sin_cos,
+                                                     default_r)
+
+
+
+        score = self.encoder(seq_idx,
+                             rigids,
+                             timestep,
+                             x_seq_esm,
+                             x_rigid_type, 
+                             x_rigid_proterty,
+                             pad_mask,
         )
 
         return score
@@ -495,231 +506,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         self.write_preds_counter = 0
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
-
-    def _get_loss_terms(
-        self, batch, write_preds: Optional[str] = None
-    ) -> List[torch.Tensor]:
-        """
-        Returns the loss terms for the model. Length of the returned list
-        is equivalent to the number of features we are fitting to.
-        """
-        known_noise = batch["known_noise"]
-       # print("====================batch[t]=================================",batch["t"])
-       # print("====================batch[t]=================================",batch["t"].shape)
-        predicted_noise = self.forward(
-            batch["corrupted"],  #[batch,128,4]
-            batch["coords"], #[batch,128,4,3]
-            batch["seq"], #[batch,128,4]
-            batch["t"], 
-            batch["acid_embedding"],  #[batch,128,1024]
-            batch['rigid_type_onehot'], #[batch,128,5,19] x_rigid_type[-1]=one hot
-            batch['rigid_property'], #[batch,128,5,6]
-            batch['attn_mask']
-        )
-
-
-        predicted_noise = torch.mul(predicted_noise, batch['chi_mask'])
-        known_noise = torch.mul(known_noise, batch['chi_mask'])
-      #  print("====================predicted_noise.shape=================================",predicted_noise.shape)
-
-        assert (
-            known_noise.shape == predicted_noise.shape
-        ), f"{known_noise.shape} != {predicted_noise.shape}"
-
-        # Indexes into batch then indices along sequence length
-        # attn_mask has shape (batch, seq_len) --> where gives back
-        # two lists of values, one for each dimension
-        # known_noise has shape (batch, seq_len, num_fts)
-        unmask_idx = torch.where(batch["attn_mask"])
-      #  print("====================predicted_noise[unmask_idx[0], unmask_idx[1], 0]======================",predicted_noise[unmask_idx[0], unmask_idx[1], 0])
-        assert len(unmask_idx) == 2
-        loss_terms = []
-      #  print("+++===++++++++++known_noise.shape[-1]+++++++++++++++++",known_noise.shape[-1])
-        for i in range(known_noise.shape[-1]):
-            loss_fn = (
-                self.loss_func[i]
-                if isinstance(self.loss_func, list)
-                else self.loss_func
-            )
-            logging.debug(f"Using loss function {loss_fn}")
-            # Determine whether the loss accepts circle_penalty
-            # https://stackoverflow.com/questions/23228664/how-to-check-which-arguments-a-function-method-takes
-            loss_args = inspect.getfullargspec(loss_fn)
-            if (
-                "circle_penalty" in loss_args.args
-                or "circle_penalty" in loss_args.kwonlyargs
-            ):
-                logging.debug(f"Loss function {loss_fn} accepts circle_penalty")
-                l = loss_fn(
-                    predicted_noise[unmask_idx[0], unmask_idx[1], i],
-                    known_noise[unmask_idx[0], unmask_idx[1], i],
-                    circle_penalty=self.circle_lambda,
-                )
-            else:
-                logging.debug(f"Loss function {loss_fn} does not accept circle_penalty")
-                l = loss_fn(
-                    predicted_noise[unmask_idx[0], unmask_idx[1], i],
-                    known_noise[unmask_idx[0], unmask_idx[1], i],
-                )
-            #print('==========================l======================',l)
-            loss_terms.append(l)
-        #print("tttttttttttttttttttttt",loss_terms)
-        if write_preds is not None:
-            with open(write_preds, "w") as f:
-                d_to_write = {
-                    "known_noise": known_noise.cpu().numpy().tolist(),
-                    "predicted_noise": predicted_noise.cpu().numpy().tolist(),
-                    "attn_mask": batch["attn_mask"].cpu().numpy().tolist(),
-                    "losses": [l.item() for l in loss_terms],
-                }
-                json.dump(d_to_write, f)
-
-        if (
-            isinstance(self.use_pairwise_dist_loss, (list, tuple))
-            or self.use_pairwise_dist_loss > 0
-        ):
-            # Compute the pairwise distance loss
-            bs = batch["sqrt_one_minus_alphas_cumprod_t"].shape[0]
-            # The alpha* have shape of [batch], e.g. [32]
-            # corrupted have shape of [batch, seq_len, num_angles], e.g. [32, 128, 6]
-            denoised_angles = (
-                batch["corrupted"]
-                - batch["sqrt_one_minus_alphas_cumprod_t"].view(bs, 1, 1)
-                * predicted_noise
-            )
-            denoised_angles /= batch["sqrt_alphas_cumprod_t"].view(bs, 1, 1)
-
-            known_angles = batch["angles"]
-            inferred_coords = nerf.nerf_build_batch(
-                phi=denoised_angles[:, :, self.ft_names.index("phi")],
-                psi=known_angles[:, :, self.ft_names.index("psi")],
-                omega=known_angles[:, :, self.ft_names.index("omega")],
-                bond_angle_n_ca_c=known_angles[:, :, self.ft_names.index("tau")],
-                bond_angle_ca_c_n=known_angles[:, :, self.ft_names.index("CA:C:1N")],
-                bond_angle_c_n_ca=known_angles[:, :, self.ft_names.index("C:1N:1CA")],
-            )
-            denoised_coords = nerf.nerf_build_batch(
-                phi=denoised_angles[:, :, self.ft_names.index("phi")],
-                psi=denoised_angles[:, :, self.ft_names.index("psi")],
-                omega=denoised_angles[:, :, self.ft_names.index("omega")],
-                bond_angle_n_ca_c=denoised_angles[:, :, self.ft_names.index("tau")],
-                bond_angle_ca_c_n=denoised_angles[:, :, self.ft_names.index("CA:C:1N")],
-                bond_angle_c_n_ca=denoised_angles[
-                    :, :, self.ft_names.index("C:1N:1CA")
-                ],
-            )
-            ca_idx = torch.arange(start=1, end=denoised_coords.shape[1], step=3)
-            denoised_ca_coords = denoised_coords[:, ca_idx, :]
-            inferred_ca_coords = inferred_coords[:, ca_idx, :]
-            assert (
-                inferred_ca_coords.shape == denoised_ca_coords.shape
-            ), f"{inferred_ca_coords.shape} != {denoised_ca_coords.shape}"
-
-            # Determine coefficient for this loss term
-            if isinstance(self.use_pairwise_dist_loss, (list, tuple)):
-                min_coef, max_coef, max_timesteps = self.use_pairwise_dist_loss
-                assert 0 < min_coef < max_coef
-                # Linearly interpolate between min and max based on the timestep
-                # of each item in the batch
-                coef = min_coef + (max_coef - min_coef) * (
-                    (max_timesteps - batch["t"]) / max_timesteps
-                ).to(batch["t"].device)
-                assert torch.all(coef > 0)
-            else:
-                coef = self.use_pairwise_dist_loss
-                assert coef > 0
-
-            pdist_loss = losses.pairwise_dist_loss(
-                denoised_ca_coords,
-                inferred_ca_coords,
-                lengths=batch["lengths"],
-                weights=coef,
-            )
-            loss_terms.append(pdist_loss)
-
-        return torch.stack(loss_terms)
-    
-    #=======================================new loss=========================================
-    
-    def _get_loss_terms_changed(
-        self,
-        batch: torch.Tensor,
-        write_preds: Optional[str] = None
-    ) -> torch.Tensor:
-        """
-        Returns the loss terms for the model. Length of the returned list
-        is equivalent to the number of features we are fitting to.
-        """
-
-        angles = batch["angles"]
-
-        diffusion_mask = torch.rand(angles.shape[:-1]) < self.diffusion_fraction
-        diffusion_mask = diffusion_mask[...,None].to("cuda")
-        corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
-
-        true_chi_sin = torch.sin(angles)
-        true_chi_cos = torch.cos(angles)
-        true_chi_sin_cos = torch.stack([true_chi_sin, true_chi_cos], dim=-1)
-
-        """
-        sc_angle = None
-
-        # With 50% chance, sc_angle are calculated
-        if random.Random() < 0.5:
-            with torch.no_grad():
-                # we dont need input sc_angle here cause it is initially set to None
-                sc_angle = self.forward(
-                    batch["corrupted"],  #[batch,128,4]
-                    batch["coords"], #[batch,128,4,3]
-                    batch["seq"], #[batch,128,4]
-                    batch["t"],
-                    batch["acid_embedding"],  #[batch,128,1024]
-                    batch['rigid_type_onehot'], #[batch,128,5,19] x_rigid_type[-1]=one hot
-                    batch['rigid_property'], #[batch,128,5,6]
-                    batch["attn_mask"],)
-
-        """
-
-        predicted_angle_sin_cos, unnormalized_chi_angles = self.forward(
-            corrupted_angles,  #[batch,128,4]
-            batch["angles"],
-            batch["coords"], #[batch,128,4,3]
-            batch["seq"], #[batch,128,4]
-            diffusion_mask, #[batch,128,1]
-            batch["t"],
-            batch["acid_embedding"],  #[batch,128,1024]
-            batch['rigid_type_onehot'], #[batch,128,5,19] x_rigid_type[-1]=one hot
-            batch['rigid_property'], #[batch,128,5,6]
-            batch["attn_mask"],
-
-            """sc_angle,"""
-        )
-
-        assert (true_chi_sin_cos.shape == predicted_angle_sin_cos.shape), f"{true_chi_sin_cos.shape} != {predicted_angle_sin_cos.shape}"
-
-        loss_fn = self.angular_loss_fn_dict['square_chi_loss_with_periodic']
-        mask = batch['chi_mask'] * diffusion_mask
-        loss_terms = loss_fn(
-            predicted_angle_sin_cos,
-            unnormalized_chi_angles,
-            true_chi_sin_cos,
-            batch['seq'],  # [b,L] restpyes in number
-            mask,  # [b,L,4]  Padded in chi_mask so no need to use padding mask
-        )
-
-        if write_preds is not None:
-            with open(write_preds, "w") as f:
-                d_to_write = {
-                    "true_chi_sin_cos": true_chi_sin_cos.cpu().numpy().tolist(),
-                    "predicted_angle_sin_cos": predicted_angle_sin_cos.cpu().numpy().tolist(),
-                    "chi_mask": batch["chi_mask"].cpu().numpy().tolist(),
-                    "losses": [l.item() for l in loss_terms],
-                }
-                json.dump(d_to_write, f)        
-        return loss_terms   
-    
-    #=======================================new loss=========================================
-
+  
     def _get_loss_terms_grad(self,
                              batch: torch.Tensor,
                              write_preds: Optional[str] = None
@@ -729,32 +516,11 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
            is equivalent to the number of features we are fitting to.
            """
 
-        angles = batch["angles"]
-
-        #diffusion_mask = torch.rand(angles.shape[:-1]) < self.diffusion_fraction
-        #diffusion_mask = diffusion_mask[..., None]
-        #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
-        corrupted_angles = batch["corrupted"]
-        true_chi_sin = torch.sin(angles)
-        true_chi_cos = torch.cos(angles)
-        true_chi_sin_cos = torch.stack([true_chi_sin, true_chi_cos], dim=-1)
-
-        # [*, N_rigid, 4, 2]
-        angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
-        default_r = structure_build_score.get_default_r(batch["seq"], corrupted_angles)
-        # [*, N_res] Rigid
-        bb_to_gb = geometry.get_gb_trans(batch["coords"])
-        # [*, N_rigid] Rigid
-        rigids, current_local = structure_build.torsion_to_frame(batch["seq"],
-                                                                bb_to_gb,
-                                                                angles_sin_cos,
-                                                                default_r)
         predicted_score = self.forward(
-            #corrupted_angles,  # [batch,128,4]
-            #batch["angles"],
-            #batch["coords"],  # [batch,128,4,3]
+            batch['corrupted'],  # [batch,128,4]
+            batch["angles"],
+            batch["coords"],  # [batch,128,4,3]
             batch["seq"],  # [batch,128,4]
-            rigids, # [*, N_rigid] Rigid
             #diffusion_mask,  # [batch,128,1]
             batch["t"],
             batch["acid_embedding"],  # [batch,128,1024]
@@ -776,8 +542,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         if write_preds is not None:
             with open(write_preds, "w") as f:
                 d_to_write = {
-                    "true_chi_sin_cos": true_chi_sin_cos.cpu().numpy().tolist(),
-                    "predicted_angle_sin_cos": predicted_score.cpu().numpy().tolist(),
+                    "predicted_score": predicted_score.cpu().numpy().tolist(),
                     "chi_mask": batch["chi_mask"].cpu().numpy().tolist(),
                     "losses": [l.item() for l in loss_terms],
                 }

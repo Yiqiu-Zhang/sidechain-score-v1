@@ -22,6 +22,7 @@ from foldingdiff import modelling_score as modelling
 from write_preds_pdb import structure_build_score as structure_build, \
     geometry
 
+# return all frame instead of sidechain rigid frame 
 def rigid_apply_update(seq, bb_to_gb, delta_chi, current_local):
     return structure_build.torsion_to_frame(seq, bb_to_gb, delta_chi, current_local)
 
@@ -46,7 +47,7 @@ def p_sample_loop_score(
     # [*, N_res] Rigid
     bb_to_gb = geometry.get_gb_trans(coords)
     # [*, N_rigid] Rigid
-    rigids, current_local_frame = structure_build.torsion_to_frame(seq,
+    rigids, current_local_frame,_ = structure_build.torsion_to_frame(seq,
                                                              bb_to_gb,
                                                              angles_sin_cos,
                                                              default_r)
@@ -58,7 +59,7 @@ def p_sample_loop_score(
     pad_mask = torch.zeros(corrupted_angles.shape[:2], device=corrupted_angles.device)
     for i, l in enumerate(seq_lens):
         pad_mask[i, :l] = 1.0
-    print('======angles_sin_cos=====',angles_sin_cos.shape)
+    # print('======angles_sin_cos=====',angles_sin_cos.shape)
     imgs = []
     #for sigma_idx, sigma in enumerate(sigma_schedule):
     for sigma in tqdm(sigma_schedule):
@@ -77,14 +78,9 @@ def p_sample_loop_score(
         perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
         perturb_sin_cos = torch.stack((torch.sin(perturb), torch.cos(perturb)), -1)
        # perturb_sin_cos = perturb_sin_cos.view(perturb_sin_cos.shape[0],perturb_sin_cos.shape[-2],perturb_sin_cos.shape[-1]/2,2)
-        print('======perturb_sin_cos=====',perturb_sin_cos.shape)
-        rigids, current_local_frame = rigid_apply_update(seq, bb_to_gb, perturb_sin_cos, current_local_frame)
-        print('======seq=====',seq.shape)
+        rigids, current_local_frame, all_frames_to_global = rigid_apply_update(seq, bb_to_gb, perturb_sin_cos, current_local_frame)
         
-        print('=======rigid rot==================',rigids.rot.shape)
-        print('=======rigid tra==================',rigids.trans.shape)
-        print('=======rigid==================',rigids.shape)
-        torsion_angles = structure_build.rigids_to_torsion_angles(seq, rigids)
+        torsion_angles = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)[..., 3:]
         imgs.append(torsion_angles.cpu())
 
     return torch.stack(imgs)
@@ -123,6 +119,7 @@ def sample(
             lengths.extend([l] * n)
     else:
         lengths = [train_dset.sample_length() for _ in range(n)]
+
     lengths_chunkified = [
         lengths[i : i + batch_size] for i in range(0, len(lengths), batch_size)
     ]
@@ -180,24 +177,6 @@ def sample(
         ]
 
         retval.extend(trimmed_sampled)
-    # Note that we don't use means variable here directly because we may need a subset
-    # of it based on which features are active in the dataset. The function
-    # get_masked_means handles this gracefully
-    if (
-        hasattr(train_dset, "dset")
-        and hasattr(train_dset.dset, "get_masked_means")
-        and train_dset.dset.get_masked_means() is not None
-    ):
-        logging.info(
-            f"Shifting predicted values by original offset: {train_dset.dset.get_masked_means()}"
-        )
-        retval = [s + train_dset.dset.get_masked_means() for s in retval]
-        # Because shifting may have caused us to go across the circle boundary, re-wrap
-        angular_idx = np.where(train_dset.feature_is_angular[feature_key])[0]
-        for s in retval:
-            s[..., angular_idx] = utils.modulo_with_wrapped_range(
-                s[..., angular_idx], range_min=-np.pi, range_max=np.pi
-            )
 
     return retval
 

@@ -160,15 +160,13 @@ class InputEmbedder(nn.Module):
                                         pair_transition_n)
 
 
-        self.linear_tf_z_i = nn.Linear(nf_dim, c_z)
-        self.linear_tf_z_j = nn.Linear(nf_dim, c_z)
+
         self.linear_tf_n = nn.Linear(nf_dim, c_n)
 
         # Relative_position encoding
         self.relpos_k = relpos_k
         self.no_bins = 2 * relpos_k + 1
         self.edge_type = edge_type
-        self.linear_relpos = nn.Linear(self.no_bins +10, c_z)
 
     def relpos(self,
         seq_len: int,
@@ -210,6 +208,7 @@ class InputEmbedder(nn.Module):
         #orientation: torch.Tensor,# [batch, N_rigid, N_rigid] Rigid 要把这个东西变成 quaternion
         rigid_mask: torch.Tensor, # [batch, N_rigid]  mask of the missing rigid body
         pair_mask: torch.Tensor, # [batch, N_rigid, N_rigid]
+        E_idx: torch.Tensor,
 
         sigma: torch.Tensor, # [batch, 1]
         sigma_min = 0.01 * torch.pi,
@@ -220,13 +219,13 @@ class InputEmbedder(nn.Module):
         assert rigid_property.shape[-1] == 6
 
         batch_size, seq_len, _ = seq_esm.shape
+        n_rigid = rigid_mask.shape[1]
 
         # [batch, N_rigid, c]
         flat_rigid_type = rigid_type.reshape(batch_size, -1, rigid_type.shape[-1])
         flat_rigid_property = rigid_property.reshape(batch_size, -1, rigid_property.shape[-1])
         expand_seq = seq_esm.repeat(1,1,5).reshape(batch_size, -1, seq_esm.shape[-1])
 
-        n_rigid = expand_seq.shape[1]
 
         # [batch, N_rigid, 8]
         # sin_cos = torch.cat((torch.sin(noised_angles), torch.cos(noised_angles)), -1)
@@ -266,23 +265,25 @@ class InputEmbedder(nn.Module):
         ################ Pair_feature ####################
 
         # [batch, N_rigid, N_rigid, C_x] C_x = 23?
-        distance_rbf = rbf(distance)
+        distance_e = gather_edges(distance[...,None], E_idx).squeeze(-1)
+        distance_rbf = rbf(distance_e)
         #orientation_quaternions = matrix_to_quaternion(orientation)
         #pair_feature = torch.cat((distance_rbf, altered_direction, orientation_quaternions),dim=-1)
         #pair_feature = pair_feature.float()
-        
-        nf_emb_i = self.linear_tf_z_i(node_feature)
-        nf_emb_j = self.linear_tf_z_j(node_feature)
+        nf_pair_feature = torch.cat([torch.tile(node_feature[:, :, None, :], (1, 1, n_rigid, 1)),
+                                     torch.tile(node_feature[:, None, :, :], (1, n_rigid, 1, 1))], axis = -1)
+        nf_pair_feature = gather_edges(nf_pair_feature, E_idx)
 
         # [*, N_rigid, N_rigid, c_z]
         d = self.relpos(seq_len, batch_size)
-        relative_pos = self.linear_relpos(d)
-        # [*, N_rigid, N_rigid, c_z] = [*, N_rigid, N_rigid, c_z]+ [*, N_rigid, 1, c_z] + [*, 1, N_rigid, c_z]
-        nf_pair_emb = nf_emb_i[..., None, :] + nf_emb_j[..., None, :, :]
-      
-        pair_emb = self.pair_embedder(distance_rbf, nf_pair_emb, relative_pos, pair_mask)
+        d_k = gather_edges(d, E_idx)
 
-        return node_emb, pair_emb
+        # [*, N_rigid, N_rigid, c_z] = [*, N_rigid, N_rigid, c_z]+ [*, N_rigid, 1, c_z] + [*, 1, N_rigid, c_z]
+
+        pair_mask_e = gather_edges(pair_mask.unsqueeze(-1), E_idx).squeeze(-1)
+        pair_emb = self.pair_embedder(distance_rbf, nf_pair_feature, d_k, pair_mask_e)
+
+        return node_emb, pair_emb, pair_mask_e
 
 class EdgeInvariantPointAttention(nn.Module):
 
@@ -342,10 +343,8 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, K, C_z]
-        z_e = [gather_edges(z, E_idx)]
+        z_e = [z]
 
-
-        pair_mask_e = gather_edges(pair_mask.unsqueeze(-1), E_idx).squeeze(-1)
 
 
         # [*, N_rigid, H * C_hidden]
@@ -441,7 +440,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
                 # [*, N_rigid, N_rigid] # MASK 随后再改
-        square_mask_e = self.inf * (pair_mask_e - 1)  # 这里靠 mask 逼近 -inf 之后再用 softmax 让 attention score 变 0
+        square_mask_e = self.inf * (pair_mask - 1)  # 这里靠 mask 逼近 -inf 之后再用 softmax 让 attention score 变 0
 
         # [*, H, N_rigid, K]
         pt_att = permute_final_dims(pt_att, [2, 0, 1])
@@ -799,7 +798,7 @@ class EdgeTransition(nn.Module):
         self.final_layer = nn.Linear(hidden_size, edge_embed_out)
         self.layer_norm = nn.LayerNorm(edge_embed_out)
 
-    def forward(self, node_emb, edge_emb):
+    def forward(self, node_emb, edge_emb, E_idx):
         # [batch, N_rigid, c_n/2]
         node_emb = self.initial_embed(node_emb)
         batch_size, num_rigids, _ = node_emb.shape
@@ -809,21 +808,16 @@ class EdgeTransition(nn.Module):
             torch.tile(node_emb[:, :, None, :], (1, 1, num_rigids, 1)),
             torch.tile(node_emb[:, None, :, :], (1, num_rigids, 1, 1)),
         ], axis=-1)
+        edge_bias = gather_edges(edge_bias, E_idx)
 
         # [batch * N_rigid * N_rigid, c_n + c_z]
-        edge_emb = torch.cat(
-            [edge_emb, edge_bias], axis=-1).reshape(
-                batch_size * num_rigids**2, -1)
+        edge_emb = torch.cat([edge_emb, edge_bias], axis=-1)
 
         # [batch * N_rigid * N_rigid, c_z]
         edge_emb1 = self.trunk(edge_emb)
         edge_emb = self.final_layer(edge_emb1 + edge_emb)
         edge_emb = self.layer_norm(edge_emb)
 
-        # [batch, N_rigid, N_rigid, c_z]
-        edge_emb = edge_emb.reshape(
-            batch_size, num_rigids, num_rigids, -1
-        )
         return edge_emb
 
 
@@ -1087,7 +1081,7 @@ class StructureUpdateModule(nn.Module):
         for i, block in enumerate(self.blocks):
             node_emb = block(node_emb, pair_emb, rigids, pair_mask, E_idx)
 
-            pair_emb = self.edge_transition(node_emb, pair_emb) * pair_mask.unsqueeze(-1)
+            pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
 
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
 
@@ -1155,8 +1149,8 @@ class StructureBlock(nn.Module):
         # [*, N_rigid, c_n]
         # ipa_emb = self.ipa(node_emb, rigids,pair_mask)
 
-        ipa_emb = self.edge_ipa(node_emb, pair_emb, rigids, pair_mask, E_idx)
-        node_emb = self.ipa_ln(node_emb + ipa_emb)
+        node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids, pair_mask, E_idx)
+        node_emb = self.ipa_ln(node_emb)
         node_emb = self.node_transition(node_emb)
 
         return node_emb
@@ -1173,7 +1167,7 @@ class RigidDiffusion(nn.Module):
                  edge_type: int = 10,
 
                  # PairEmbedder parameter
-                 pair_dim: int = 23, # rbf + direction_vector + qu
+                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
                  c_z: int = 64, # Pair channel dimension after InputEmbedding
                  c_hidden_tri_att: int = 16, # x2 cause we x2 the input dimension
                  c_hidden_tri_mul: int = 32, # Keep ori
@@ -1267,7 +1261,7 @@ class RigidDiffusion(nn.Module):
         E_idx = structure_build_score.update_E_idx(rigids, pair_mask, self.top_k)
 
         # [*, N_rigid, c_n], [*, N_rigid, N_rigid, c_z]
-        init_node_emb, pair_emb = self.input_embedder(#side_chain_angles,
+        init_node_emb, pair_emb, pair_mask_e = self.input_embedder(#side_chain_angles,
                                                 seq_esm,
                                                 #diffusion_mask,
                                                 rigid_type,
@@ -1277,13 +1271,14 @@ class RigidDiffusion(nn.Module):
                                               # orientation,
                                                 rigid_mask,
                                                 pair_mask,
+                                                E_idx,
                                                 sigma)
           
         # [*, N_res, c_n * 5]      
         node_emb = self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
-                                         pair_mask,
+                                         pair_mask_e,
                                          E_idx)
 
         # Reshape N_rigid into N_res 这里其实一直没有好好写， 这五个rigid的表示直接被拼起来就用来预测角度了，这里是不是应该换一种方法？

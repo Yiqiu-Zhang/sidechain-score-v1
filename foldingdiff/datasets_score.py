@@ -1449,7 +1449,6 @@ class NoisedAnglesDataset(Dataset):
             t = torch.tensor([time_index]).long()  # list to get correct shape
         else:
             t = torch.randint(0, self.timesteps, (1,)).long()
-            print('sigma calculating check==============================================================')
             # [0, pi]
             sigma = np.exp(np.random.uniform(low=np.log(sigma_min), high=np.log(sigma_max)))
             sigma = torch.tensor(sigma)
