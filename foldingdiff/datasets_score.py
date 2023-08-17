@@ -145,6 +145,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # Default to false; assuming no cache, also doesn't match
         codebase_matches_hash = False
         self.cache_dir = cache_dir
+        '''
         # Always compute for toy; do not save
         if toy:
             if isinstance(toy, bool):
@@ -165,6 +166,13 @@ class CathCanonicalAnglesDataset(Dataset):
                 else:
                     self.structures = loaded_structures
                     logging.info("Hash matches between codebase and cached values!")
+        '''
+        cache_fname = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/esm3B_cache_canonical_structures_cath_5f78fbaa0daf91473835f7445535dcc2.pkl'
+        with open(cache_fname, "rb") as source:
+                logging.info(f"Loading cached full dataset from {cache_fname}")
+                loaded_hash, loaded_structures = pickle.load(source)
+                self.structures = loaded_structures
+        '''
         # We have not yet populated self.structures
         if self.structures is None:
             self.__clean_mismatched_caches()
@@ -173,7 +181,7 @@ class CathCanonicalAnglesDataset(Dataset):
                 logging.info(f"Saving full dataset to cache at {self.cache_fname}")
                 with open(self.cache_fname, "wb") as sink:
                     pickle.dump((codebase_hash, self.structures), sink)
-
+        '''
         # If specified, remove sequences shorter than min_length
         if self.min_length:
             orig_len = len(self.structures)

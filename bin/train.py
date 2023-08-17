@@ -5,6 +5,10 @@ Example usage: python ~/protdiff/bin/train.py ~/protdiff/config_jsons/full_run_c
 srun -p bio_s1 -n 1 --ntasks-per-node=1 --cpus-per-task=40 --gres=gpu:2 python train.py /mnt/petrelfs/lvying/code/sidechain-rigid-attention/config_jsons/cath_full_angles_cosine.json --dryrun
 squeue -p bio_s1
 sbatch -p bio_s1 --ntasks-per-node=1 --cpus-per-task=10 --gres=gpu:1  sample_8.7.sh
+sbatch -p bio_s1 --ntasks-per-node=1 --cpus-per-task=64 --gres=gpu:7  IPA_Score_8.3.sh 
+export http_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
+export https_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
+swatch  -n  SH-IDC1-10-140-1-163  nv
 """
 
 import os, sys
@@ -396,7 +400,7 @@ def train(
             batch_size=effective_batch_size,
             shuffle=i == 0,  # Shuffle only train loader
             #num_workers=multiprocessing.cpu_count() if multithread else 1,
-            num_workers= 220,
+            num_workers= 0,
             pin_memory=True,
         )
         for i, ds in enumerate(dsets)
@@ -507,7 +511,7 @@ def train(
         log_every_n_steps=min(1, len(train_dataloader)),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
-        gpus=6,
+        gpus=ngpu,
         enable_progress_bar=False,
         move_metrics_to_cpu=False,  # Saves memory
        # detect_anomaly=True
@@ -516,6 +520,7 @@ def train(
      #   amp_level = 'O1'    
     )
    # print("=================================LvYing testing================================")
+    '''
     print("++++++++++++++++++++++++++++++++++++model framework++++++++++++++++++++++++++++++++++++++")
     temp_idx = 0
     for name, param in model.named_parameters():
@@ -525,6 +530,7 @@ def train(
            print(temp_idx,name)
            temp_idx = temp_idx+1
     print("++++++++++++++++++++++++++++++++++++model framework++++++++++++++++++++++++++++++++++++++")
+    '''
     #print(train_dataloader.batch_size)
    # print(valid_dataloader.batch_size)
    # data_iter = iter(train_dataloader)
@@ -536,9 +542,8 @@ def train(
         model=model,
         train_dataloaders=train_dataloader,
         val_dataloaders=valid_dataloader,
- #       ckpt_path = '/mnt/petrelfs/lvying/code/sidechain-rigid-attention_yiqiu/bin/resutl_IPA_Model_no_time_8_2/models/best_by_valid/epoch=52-step=35404.ckpt'
+        ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/resutl_periodic_neighbour_8_15/models/best_by_valid/epoch=53-step=20628.ckpt'
     )
-    
    # profiler_results = profiler.profile
    # summary = profiler_resultskey_averages().table(sort_by="self_cuda_memory_usage", row_limit=10)
    # print(profiler_results)

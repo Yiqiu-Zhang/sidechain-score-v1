@@ -65,8 +65,10 @@ def p_sample_loop_score(
     for sigma in tqdm(sigma_schedule):
 
         sigma = torch.unsqueeze(sigma, 0).to('cuda')
-        score = model(seq,
-                      rigids,
+        score = model(corrupted_angles,
+                      corrupted_angles, # this is temporary choise just for generation, We no longer input the real angle
+                      coords,
+                      seq,
                       sigma,
                       acid_embedding,
                       rigid_type,

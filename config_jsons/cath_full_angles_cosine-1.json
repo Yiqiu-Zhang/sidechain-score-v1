@@ -20,6 +20,6 @@
     "max_epochs": 5000,
     "early_stop_patience": 0,
     "use_swa": false,
-    "batch_size": 36,
+    "batch_size": 50,
     "multithread": true
 }
