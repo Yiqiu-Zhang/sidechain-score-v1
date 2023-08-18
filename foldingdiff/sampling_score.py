@@ -52,7 +52,7 @@ def p_sample_loop_score(
                                                              angles_sin_cos,
                                                              default_r)
 
-    sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1]
+    sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cuda')
     eps = 1 / steps
 
     # Create the attention mask
@@ -64,9 +64,8 @@ def p_sample_loop_score(
     #for sigma_idx, sigma in enumerate(sigma_schedule):
     for sigma in tqdm(sigma_schedule):
 
-        sigma = torch.unsqueeze(sigma, 0).to('cuda')
+        sigma = torch.unsqueeze(sigma, 0)
         score = model(corrupted_angles,
-                      corrupted_angles, # this is temporary choise just for generation, We no longer input the real angle
                       coords,
                       seq,
                       sigma,
@@ -79,11 +78,10 @@ def p_sample_loop_score(
         z = torch.normal(mean=0, std=1, size= score.shape)
         perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
         perturb_sin_cos = torch.stack((torch.sin(perturb), torch.cos(perturb)), -1)
-       # perturb_sin_cos = perturb_sin_cos.view(perturb_sin_cos.shape[0],perturb_sin_cos.shape[-2],perturb_sin_cos.shape[-1]/2,2)
         rigids, current_local_frame, all_frames_to_global = rigid_apply_update(seq, bb_to_gb, perturb_sin_cos, current_local_frame)
         
-        torsion_angles = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)[..., 3:]
-        imgs.append(torsion_angles.cpu())
+        corrupted_angles = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)[..., 3:]
+        imgs.append(corrupted_angles.cpu())
 
     return torch.stack(imgs)
 

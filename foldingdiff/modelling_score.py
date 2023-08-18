@@ -387,14 +387,14 @@ class AngleDiffusionBase(nn.Module):
     def forward(
         self,
         corrupted_angles: torch.Tensor, #[batch,128,4]
-        angles: torch.Tensor, #[batch,128,4]
+        #angles: torch.Tensor, #[batch,128,4]
         backbone_coords: torch.Tensor, #[batch,128,4,3]
         seq_idx: torch.Tensor,#[batch,128,4]
        # diffusion_mask: torch.Tensor, #[batch,128,4]
         timestep: torch.Tensor, 
         x_seq_esm: torch.Tensor,  #[batch,128,1024]
         x_rigid_type: torch.Tensor, #[batch,128,5,20] x_rigid_type[-1]=one hot
-        x_rigid_proterty: torch.Tensor, #[batch,128,5,6]
+        x_rigid_property: torch.Tensor, #[batch,128,5,6]
         pad_mask: torch.Tensor,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
@@ -432,7 +432,7 @@ class AngleDiffusionBase(nn.Module):
                              timestep,
                              x_seq_esm,
                              x_rigid_type, 
-                             x_rigid_proterty,
+                             x_rigid_property,
                              pad_mask,
         )
 
@@ -518,7 +518,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         predicted_score = self.forward(
             batch['corrupted'],  # [batch,128,4]
-            batch["angles"],
+            #batch["angles"],
             batch["coords"],  # [batch,128,4,3]
             batch["seq"],  # [batch,128,4]
             #diffusion_mask,  # [batch,128,1]
