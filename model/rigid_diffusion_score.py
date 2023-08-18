@@ -405,7 +405,7 @@ class EdgeInvariantPointAttention(nn.Module):
         )
 
         # [*, N_rigid, K, H]
-        b = self.linear_b(z_e)
+        b = self.linear_b(z)
 
         # [*, H, N_rigid, K]
         qT_k = torch.matmul( # [B, N, 1, H, C_hidden] -> [B, N, H,  1, C_hidden]
@@ -476,7 +476,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, H, C_z] = [*, N_rigid, H, K] x [*, N_rigid, K, C_z]
-        o_pair = torch.matmul(a.transpose(-2, -3), z_e.to(dtype=a.dtype))
+        o_pair = torch.matmul(a.transpose(-2, -3), z.to(dtype=a.dtype))
 
         # [*, N_rigid, H * C_z]
         o_pair = flatten_final_dims(o_pair, 2).float()
@@ -1046,6 +1046,8 @@ class RigidDiffusion(nn.Module):
 
         E_idx = structure_build_score.update_E_idx(rigids, pair_mask, self.top_k)
 
+        altered_direction = gather_edges(altered_direction, E_idx)
+        orientation = gather_edges(orientation.flatten(-2), E_idx).reshape((*E_idx.shape,3,3))
         # [*, N_rigid, c_n], [*, N_rigid, N_rigid, c_z]
         init_node_emb, pair_emb, pair_mask_e = self.input_embedder(#side_chain_angles,
                                                 seq_esm,
