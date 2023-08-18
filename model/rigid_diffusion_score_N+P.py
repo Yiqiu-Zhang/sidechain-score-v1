@@ -11,7 +11,7 @@ import numpy as np
 import math
 from torch.autograd import Variable
 from write_preds_pdb import structure_build_score
-from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, rot_vec
+from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
 
@@ -335,14 +335,15 @@ class EdgeInvariantPointAttention(nn.Module):
 
     def forward(self,
              s: torch.Tensor, # node_emb
-             z: torch.Tensor, # [*, N_rigid, K, C_z]
+             z: torch.Tensor,
              r: Rigid, # I will need to make the rigid also become neighbor???
-             direction: torch.Tensor,
-             rel_ori: torch.Tensor,
              pair_mask: torch.Tensor,  # pair_mask
              E_idx: torch.Tensor,
              )-> torch.Tensor:
 
+
+        # [*, N_rigid, K, C_z]
+        z_e = [z]
 
 
 
@@ -394,23 +395,21 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # [*, N_rigid, K, H, (P_q + P_v), 3]
         kv_pts_e = gather_node(kv_pts, E_idx)
-        kv_pts_e = rot_vec(rel_ori[...,None,None,:,:], kv_pts_e)
 
-        # [B, N, K, 1, 1, 3] X [B, N, K, H, (P_q + P_v), 3]
-        kv_pts_e = torch.cross(direction[...,None,None,:],kv_pts_e)
-
-        # [*, N, K, H, P_q/P_v, 3]
+        # [*, N_rigid, H, P_q/P_v, 3]
         k_pts_e, v_pts_e = torch.split(
             kv_pts_e, [self.no_qk_points, self.no_v_points], dim=-2
         )
 
+
         # [*, N_rigid, K, H]
-        b = self.linear_b(z_e)
+        b = self.linear_b(z_e[0])
+
 
         # [*, H, N_rigid, K]
-        qT_k = torch.matmul( # [B, N, 1, H, C_hidden] -> [B, N, H,  1, C_hidden]
-            permute_final_dims(q.unsqueeze(2), [1, 0, 2]),  # [B, N, H,  1, C_hidden]
-            permute_final_dims(k_e, [1, 2, 0]),  # [B, N, H, C_hidden, K]
+        qT_k = torch.matmul(
+            permute_final_dims(q.unsqueeze(2), [1, 0, 2]),  # [*, H, 1, C_hidden]
+            permute_final_dims(k_e, [1, 2, 0]),  # [*, H, C_hidden, K]
         ).view(q.shape[:3] + E_idx.shape[-1:]).transpose(-2, -3)
 
         qT_k *= math.sqrt(1.0 / (3 * self.c_hidden))  # (3 * self.c_hidden) WL * c
@@ -419,34 +418,36 @@ class EdgeInvariantPointAttention(nn.Module):
         b = (math.sqrt(1.0 / 3) * permute_final_dims(b, [2, 0, 1]))  # [*, H, N_rigid, K]
 
         a = qT_k + b
-        #[*, N_rigid, 1, H, P_q, 3] -  [*, N_rigid, K, H, P_q, 3]
+
         # [*, N_rigid, K, H, P_q, 3] = [*, N_rigid, 1, *] - [*, 1, K, *]
-        # [*, N_rigid, 1, H, P_q, 3]
-        pt_att = torch.matmul(
-            permute_final_dims(q_pts.unsqueeze(-4),[1,2,0,3]), # [*, N, H, P_q, 1,  3]
-            permute_final_dims(k_pts_e,[1,2,3,0]) # [B, N, H, P_q, 3,  K,]
-        ).view((*q_pts.shape[:4], E_idx.shape[-1])) # [B, N, H, P_q, K,]
+        pt_att = q_pts.unsqueeze(-4) - k_pts_e
+
+        pt_att = pt_att ** 2
 
         # [*, N_rigid, K, H, P_q]
+        pt_att = sum(torch.unbind(pt_att, dim=-1))  # calculate vector length
         head_weights = self.softplus(self.head_weights).view(
-            *((1,) * len(pt_att.shape[:-3]) + (-1, 1, 1))
+            *((1,) * len(pt_att.shape[:-2]) + (-1, 1))
         )
         head_weights = head_weights * math.sqrt(
-            1.0 / (3 * (self.no_qk_points * 3.0))
+            1.0 / (3 * (self.no_qk_points * 9.0 / 2))
         )
 
         pt_att = pt_att * head_weights
 
-        # [B, H, N, K]
-        pt_att = torch.sum(permute_final_dims(pt_att,[1,0,3,2]), dim=-1) * (-0.5)  # Sum over point
+        # [*, N_rigid, K, H]
+        pt_att = torch.sum(pt_att, dim=-1) * (-0.5)  # Sum over point
 
 
-        # [*, N_rigid, N_rigid] # MASK 随后再改
+                # [*, N_rigid, N_rigid] # MASK 随后再改
         square_mask_e = self.inf * (pair_mask - 1)  # 这里靠 mask 逼近 -inf 之后再用 softmax 让 attention score 变 0
 
         # [*, H, N_rigid, K]
+        pt_att = permute_final_dims(pt_att, [2, 0, 1])
+
+        # [*, H, N_rigid, K]
         a = a + pt_att
-        a = a + square_mask_e.unsqueeze(-3)
+        a = a.to('cuda') + square_mask_e.unsqueeze(-3).to('cuda')
         a = self.softmax(a)
 
         ################
@@ -458,13 +459,15 @@ class EdgeInvariantPointAttention(nn.Module):
         # [*, N_rigid, H * C_hidden]
         o = flatten_final_dims(o, 2).float()
 
-        # [B, H, 3, N, P_v] = [B, H, 1, N, K, 1] *  [B, H, 3, N, K, P_v]
+        # [*, H, 3, N_rigid, P_v]
+
         o_pt = torch.sum(
             (a[..., None, :, :, None] * permute_final_dims(v_pts_e,[2,4,0,1,3])),
             dim=-2).float()
 
-        # [B, N, H, P_v, 3]
+        # [*, N_rigid, H, P_v, 3]
         o_pt = permute_final_dims(o_pt, [2, 0, 3, 1])
+        o_pt = invert_rot_mul_vec(r[..., None, None], o_pt)
 
         # [*, N_rigid, H * P_v]
         o_pt_norm = flatten_final_dims(
@@ -476,7 +479,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, H, C_z] = [*, N_rigid, H, K] x [*, N_rigid, K, C_z]
-        o_pair = torch.matmul(a.transpose(-2, -3), z_e.to(dtype=a.dtype))
+        o_pair = torch.matmul(a.transpose(-2, -3), z_e[0].to(dtype=a.dtype))
 
         # [*, N_rigid, H * C_z]
         o_pair = flatten_final_dims(o_pair, 2).float()
@@ -487,6 +490,221 @@ class EdgeInvariantPointAttention(nn.Module):
             torch.cat(
                 (o.float(), *torch.unbind(o_pt.float(), dim=-1), o_pt_norm.float(), o_pair.float()), dim=-1
             )).float()
+
+        return s
+
+class InvariantPointAttention(nn.Module):
+
+    def __init__(
+            self,
+            c_n: int, # node dim
+            c_z: int, # edge dim
+            c_hidden: int, # ipa dim = 12
+            no_heads: int, # 8
+            no_qk_points: int, # 4
+            no_v_points: int, # 8
+            inf: float = 1e5,
+            eps: float = 1e-7,
+    ):
+        super(InvariantPointAttention, self).__init__()
+
+        self.c_n = c_n # node dim
+        self.c_z = c_z # edge dim
+        self.c_hidden = c_hidden # ipa dim = 16
+        self.no_heads = no_heads # 8
+        self.no_qk_points = no_qk_points # 4
+        self.no_v_points = no_v_points # 8
+        self.inf = inf
+        self.eps = eps
+
+        # These linear layers differ from  Alphafold IPA module, Here we use standard nn.Linear initialization
+        hc = self.c_hidden * self.no_heads
+        self.linear_q = nn.Linear(self.c_n, hc)
+        self.linear_kv = nn.Linear(self.c_n, 2 * hc)
+
+        hpq = self.no_heads * self.no_qk_points * 3
+        self.linear_q_points = nn.Linear(self.c_n, hpq)
+
+        hpkv = self.no_heads * (self.no_qk_points + self.no_v_points) * 3
+        self.linear_kv_points = nn.Linear(self.c_n, hpkv)
+
+
+        #self.linear_b = nn.Linear(self.c_z, self.no_heads)
+
+        self.head_weights = nn.Parameter(torch.zeros(no_heads))
+        ipa_point_weights_init_(self.head_weights)
+
+        concat_out_dim = self.no_heads * (
+            self.c_z + self.c_hidden + self.no_v_points * 4
+        )
+        self.linear_out = nn.Linear(concat_out_dim, self.c_n)
+
+        self.softmax = nn.Softmax(dim=-1)
+        self.softplus = nn.Softplus()
+
+    def forward(
+            self,
+            s: torch.Tensor, # node_emb
+            z: torch.Tensor, # pair_emb
+            r: Rigid, # rigids
+            pair_mask: torch.Tensor # pair_mask
+    ) -> torch.Tensor:
+        """
+        Args:
+            s:
+                [*, N_rigid, c_n] single representation
+            z:
+                [*, N_rigid, N_rigid, C_z] pair representation
+            r:
+                [*, N_rigid] transformation object
+            pair_mask:
+                [*, N_rigid, N_rigid] mask
+        Returns:
+            [*, N_res, c_n] single representation update
+        """
+
+        #z = [z]
+
+        #######################################
+        # Generate scalar and point activations
+        #######################################
+        # [*, N_rigid, H * C_hidden]
+        q = self.linear_q(s)
+        kv = self.linear_kv(s)
+
+        # [*, N_rigid, no_heads, C_hidden]
+        q = q.view(q.shape[:-1] + (self.no_heads, -1))
+
+        # [*, N_rigid, H, 2 * C_hidden]
+        kv = kv.view(kv.shape[:-1] + (self.no_heads, -1))
+
+        # [*, N_rigid, H, C_hidden]
+        k, v = torch.split(kv, self.c_hidden, dim=-1)
+
+        # [*, N_rigid, H * P_q * 3]
+        q_pts = self.linear_q_points(s)
+
+        # This is kind of clunky, but it's how the original does it
+        # [*, N_rigid, H * P_q, 3]
+        q_pts = torch.split(q_pts, q_pts.shape[-1] // 3, dim=-1)
+        q_pts = torch.stack(q_pts, dim=-1) # [*, N_rigid, H * P_q, 3]
+        # q_pts = r[..., None].apply(q_pts)
+        q_pts = rigid_mul_vec(r[..., None], q_pts) # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * P_q, 3]
+
+        # [*, N_rigid, H, P_q, 3]
+        q_pts = q_pts.view(
+            q_pts.shape[:-2] + (self.no_heads, self.no_qk_points, 3)
+        )
+
+        # [*, N_rigid, H * (P_q + P_v) * 3]
+        kv_pts = self.linear_kv_points(s)
+
+        # [*, N_rigid, H * (P_q + P_v), 3]
+        kv_pts = torch.split(kv_pts, kv_pts.shape[-1] // 3, dim=-1)
+        kv_pts = torch.stack(kv_pts, dim=-1)
+        # kv_pts = r[..., None].apply(kv_pts)
+        kv_pts = rigid_mul_vec(r[..., None], kv_pts)
+
+        # [*, N_rigid, H, (P_q + P_v), 3]
+        kv_pts = kv_pts.view(kv_pts.shape[:-2] + (self.no_heads, -1, 3))
+
+        # [*, N_res, H, P_q/P_v, 3]
+        k_pts, v_pts = torch.split(
+            kv_pts, [self.no_qk_points, self.no_v_points], dim=-2
+        )
+
+        ##########################
+        # Compute attention scores
+        ##########################
+        # [*, N_rigid, N_rigid, H]
+        b = self.linear_b(z[0])
+
+        # [*, H, N_rigid, N_rigid]
+        qT_k = torch.matmul(
+            permute_final_dims(q, [1, 0, 2]),  # [*, H, N_rigid, C_hidden]
+            permute_final_dims(k, [1, 2, 0]),  # [*, H, C_hidden, N_rigid]
+        )
+
+        qT_k *= math.sqrt(1.0 / (3 * self.c_hidden)) # (3 * self.c_hidden) WL * c
+        b = (math.sqrt(1.0 / 3) * permute_final_dims(b, [2, 0, 1])) # [*,H, N_rigid, N_rigid]
+
+        a = qT_k + b
+
+        # [*, N_rigid, N_rigid, H, P_q, 3] = [*, N_rigid, 1, *] - [*, 1, N_rigid, *]
+        pt_att = q_pts.unsqueeze(-4) - k_pts.unsqueeze(-5)
+
+        pt_att = pt_att ** 2
+
+        # [*, N_rigid, N_rigid, H, P_q]
+        pt_att = sum(torch.unbind(pt_att, dim=-1)) # calculate vector length
+        head_weights = self.softplus(self.head_weights).view(
+            *((1,) * len(pt_att.shape[:-2]) + (-1, 1))
+        )
+        head_weights = head_weights * math.sqrt(
+            1.0 / (3 * (self.no_qk_points * 9.0 / 2))
+        )
+
+        pt_att = pt_att * head_weights
+
+        # [*, N_rigid, N_rigid, H]
+        pt_att = torch.sum(pt_att, dim=-1) * (-0.5) # Sum over point
+        # [*, N_rigid, N_rigid]
+        square_mask = self.inf * (pair_mask - 1) # 这里靠 mask 逼近 -inf 之后再用 softmax 让 attention score 变 0
+
+        # [*, H, N_rigid, N_rigid]
+        pt_att = permute_final_dims(pt_att, [2, 0, 1])
+
+        # [*, H, N_rigid, N_rigid]
+        a = a + pt_att
+        a = a.to('cuda') + square_mask.unsqueeze(-3).to('cuda')
+        a = self.softmax(a)
+
+        ################
+        # Compute output
+        ################
+        # [*, N_rigid, H, C_hidden] = [*, H, N_rigid, N_rigid] matmul [*,  H, N_rigid, C_hidden]
+        o = torch.matmul(
+            a, v.transpose(-2, -3).to(dtype=a.dtype)
+        ).transpose(-2, -3)
+
+        # [*, N_rigid, H * C_hidden]
+        o = flatten_final_dims(o, 2)
+
+
+        # [*, H, 3, N_rigid, P_v]
+        o_pt = torch.sum(
+            (
+                    a[..., None, :, :, None] # [*, H, 1, N_rigid, N_rigid, 1]
+                    * permute_final_dims(v_pts, [1, 3, 0, 2])[..., None, :, :] # [*,  H, 3, 1, N_rigid, P_v]
+            ),
+            dim=-2, # sum over j, the second N_rigid
+        )
+
+        # [*, N_rigid, H, P_v, 3]
+        o_pt = permute_final_dims(o_pt, [2, 0, 3, 1])
+        o_pt = invert_rot_mul_vec(r[..., None, None], o_pt)
+
+        # [*, N_rigid, H * P_v]
+        o_pt_norm = flatten_final_dims(
+            torch.sqrt(torch.sum(o_pt ** 2, dim=-1) + self.eps), 2
+        )
+
+        # [*, N_rigid, H * P_v, 3]
+        o_pt = o_pt.reshape((*o_pt.shape[:-3], -1, 3))
+
+
+        # [*, N_rigid, H, C_z]
+        o_pair = torch.matmul(a.transpose(-2, -3), z[0].to(dtype=a.dtype))
+
+        # [*, N_rigid, H * C_z]
+        o_pair = flatten_final_dims(o_pair, 2)
+
+        # [*, N_rigid, c_n]  [*, N_rigid, H * C_hidden + H * P_v * 3 + H * P_v + H * C_z]
+        s = self.linear_out(
+            torch.cat(
+                (o.float(), *torch.unbind(o_pt.float(), dim=-1), o_pt_norm.float(), o_pair.float()), dim=-1
+            ).float()
+        )
 
         return s
 
@@ -855,15 +1073,13 @@ class StructureUpdateModule(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
-                direction,
-                rel_ori: torch.Tensor,
                 pair_mask,
                 E_idx
                 ):
 
         #node_emb = torch.clone(init_node_emb)
         for i, block in enumerate(self.blocks):
-            node_emb = block(node_emb, pair_emb, rigids,  direction, rel_ori, pair_mask, E_idx)
+            node_emb = block(node_emb, pair_emb, rigids, pair_mask, E_idx)
 
             pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
 
@@ -926,8 +1142,6 @@ class StructureBlock(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
-                direction,
-                rel_ori: torch.Tensor,
                 pair_mask,
                 E_idx
                 ):
@@ -935,7 +1149,7 @@ class StructureBlock(nn.Module):
         # [*, N_rigid, c_n]
         # ipa_emb = self.ipa(node_emb, rigids,pair_mask)
 
-        node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids, direction, rel_ori, pair_mask, E_idx)
+        node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids, pair_mask, E_idx)
         node_emb = self.ipa_ln(node_emb)
         node_emb = self.node_transition(node_emb)
 
@@ -1064,8 +1278,6 @@ class RigidDiffusion(nn.Module):
         node_emb = self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
-                                         altered_direction,
-                                         orientation,
                                          pair_mask_e,
                                          E_idx)
 

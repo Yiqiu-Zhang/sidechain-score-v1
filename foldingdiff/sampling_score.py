@@ -39,7 +39,7 @@ def p_sample_loop_score(
 
         sigma_max = torch.pi,
         sigma_min=0.01 * np.pi,
-        steps=100,
+        steps=300,
 ):
     # [*, N_rigid, 4, 2]
     angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
