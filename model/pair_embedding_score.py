@@ -193,16 +193,12 @@ class PairEmbedder(nn.Module):
 
     def forward(
         self,
-        distance_rbf: torch.Tensor,
-        nf_pair_feature: torch.Tensor,
-        relative_pos: torch.Tensor,
+        pair_feature: torch.Tensor,
         pair_mask: torch.Tensor,
 
     ) -> torch.Tensor:
         
-        pair_emb = torch.cat([distance_rbf, nf_pair_feature, relative_pos],dim = -1)
-
-        pair_emb = self.linear_1(pair_emb.float())
+        pair_emb = self.linear_1(pair_feature.float())
         pair_emb = self.relu(pair_emb)
         pair_emb = self.linear_2(pair_emb)
 

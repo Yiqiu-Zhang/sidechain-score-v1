@@ -179,12 +179,12 @@ class Rigid:
         """
         rot_T = self.rot.transpose()
         rot = self.rot.get_rot_mat()
-        orientation = torch.einsum('bmij,bnjk->bmnik', rot_T, rot)
+        orientation = torch.einsum('bmij,bnjk->bmnik', rot_T, rot).float()
 
         displacement =  self.trans[...,None,:,:] - self.trans[...,None,:]
-        distance = torch.linalg.vector_norm(displacement,dim=-1) #
-        direction = F.normalize(displacement,dim=-1)
-        altered_direction = rot_vec(rot_T[...,None,:,:], direction)
+        distance = torch.linalg.vector_norm(displacement,dim=-1).float() 
+        direction = F.normalize(displacement,dim=-1).float()
+        altered_direction = rot_vec(rot_T[...,None,:,:], direction).float()
 
         return distance, altered_direction, orientation
 

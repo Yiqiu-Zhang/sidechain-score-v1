@@ -542,7 +542,7 @@ def train(
         model=model,
         train_dataloaders=train_dataloader,
         val_dataloaders=valid_dataloader,
-        ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/resutl_periodic_neighbour_8_15/models/best_by_valid/epoch=53-step=20628.ckpt'
+        #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/result_K16_deep/models/best_by_valid/epoch=150-step=51944.ckpt'
     )
    # profiler_results = profiler.profile
    # summary = profiler_resultskey_averages().table(sort_by="self_cuda_memory_usage", row_limit=10)
