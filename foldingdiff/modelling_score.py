@@ -638,6 +638,12 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         # Note that this method is called before zstraining_epoch_end().
         losses = torch.stack([o["val_loss"] for o in outputs])
         mean_loss = torch.mean(losses)
+        '''
+        loss_dict = {
+            "mean_loss": mean_loss
+        }
+        self.log_dict(loss_dict, rank_zero_only=True)
+        '''
         pl.utilities.rank_zero_info(
             f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
         )

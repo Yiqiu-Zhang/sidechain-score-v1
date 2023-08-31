@@ -47,7 +47,6 @@ bin/out*
 README.md
 *.ckpt
 *.npy
-bin/result_score_up_neighbour_8_11/*
-bin/resutl_periodic_neighbour_8_15
-bin/resutl_score_up_neighbour_8_11
-bin/sample_periodic_neighbour_8_15
+bin/resut*
+bin/result*
+bin/sample*
