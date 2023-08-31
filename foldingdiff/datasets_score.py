@@ -23,6 +23,7 @@ from torch import nn
 from torch.utils.data import Dataset
 
 from ESM1b_embedding import add_esm1b_embedding
+from PDB_processing import rigid_distance_pdb
 
 
 
@@ -579,10 +580,17 @@ class CathSideChainAnglesDataset(Dataset):
             print('===========================lvying Warpping Data_START Finish======================')
         '''
 
+        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        torsion_distance = list(pool.map(rigid_distance_pdb, fnames, chunksize=250))
+
         cache_fname = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/esm3B_cache_canonical_structures_cath_5f78fbaa0daf91473835f7445535dcc2.pkl'
         with open(cache_fname, "rb") as source:
                 logging.info(f"Loading cached full dataset from {cache_fname}")
                 loaded_hash, loaded_structures = pickle.load(source)
+
+                for i, structure in enumerate(loaded_structures):
+                    loaded_structures.update({'torsion_distance': torsion_distance[i]})
+
                 self.structures = loaded_structures
 
         # If specified, remove sequences shorter than min_length

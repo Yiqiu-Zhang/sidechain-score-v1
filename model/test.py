@@ -22,17 +22,14 @@ default_r = structure_build.get_default_r(seq_idx, side_chain_angles)
 # [*, N_res] Rigid
 bb_to_gb = geometry.get_gb_trans(backbone_coords)
 # [*, N_rigid] Rigid
-rigids, current_local_frame = structure_build.torsion_to_frame(seq_idx,
+rigids, current_local_frame, all_frames_to_global = structure_build.torsion_to_frame(seq_idx,
                                                                bb_to_gb,
                                                                angles_sin_cos,
                                                                default_r)
 model = RigidDiffusion()
-run = model.forward(#side_chain_angles,
-                    #ture_angles,
-                    #backbone_coords,
+run = model.forward(rigids,
+                    current_local_frame,
                     seq_idx,
-                    #diffusion_mask,
-                    rigids,
                     sigma,
                     seq_esm,
                     rigid_type,

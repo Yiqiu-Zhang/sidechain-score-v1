@@ -148,6 +148,41 @@ def acid_to_number(seq, mapping):
             num_list.append(mapping[acid])
     return num_list
 
+def rigid_distance_pdb(pdb_path):
+
+    torsion_distance_list = []
+    parser = PDB.PDBParser(QUIET=True)
+    structure = parser.get_structure('name', pdb_path)
+    model = structure[0]
+    chain = model.child_list[0]
+    removelist = []
+
+    for res in chain:
+        if res.id[0] != " ":
+            removelist.append(res.id)
+    for id in removelist:
+        chain.detach_child(id)
+
+    for res_idx, res in enumerate(chain):
+        dihedral_vec_list = [0] * 4
+
+
+        res_name = res.resname
+        res_torsion_atom_list = chi_angles_atoms[res_name]
+
+        for i, torsion_atoms in enumerate(res_torsion_atom_list):
+            # 这个还有点问题，因为在这个坐标应该是用上一个rigid的local frame来定义的，
+            # 这里直接用了 global的坐标去减。 如果单纯考虑 r的大小的话不重要，
+            # 但是要是之后要考虑去做成vector loss的话就有点问题了
+            vec_atoms_coord = [res[a].get_vector() for a in torsion_atoms]
+            dihedral_vec =  vec_atoms_coord[1] - vec_atoms_coord[2]
+            dihedral_vec_list[i] = dihedral_vec
+        torsion_distance_list.append(dihedral_vec_list)
+
+    torsion_distance = np.array(torsion_distance_list)
+
+    return torsion_distance
+
 def get_torsion_seq(pdb_path):
     
     torsion_list = []

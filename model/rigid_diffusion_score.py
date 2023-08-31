@@ -11,7 +11,7 @@ import numpy as np
 import math
 from torch.autograd import Variable
 from write_preds_pdb import structure_build_score
-from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec
+from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, Rotation, Rigid_mult
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
 
@@ -616,7 +616,6 @@ class EdgeTransition(nn.Module):
 
         return edge_emb
 
-
 class AngleScore(nn.Module):
 
     def __init__(self, c_in, c_hidden, no_blocks, no_angles, no_rigids, epsilon):
@@ -812,6 +811,50 @@ class AngleResnetBlock(nn.Module):
         t = a + s_initial
 
         return t
+
+class TransUpdate(nn.Module):
+    def __init__(self,
+                 c_n):
+
+        super(TransUpdate, self).__init__()
+        self.c_n = c_n
+        self.linear_initial = nn.Linear(self.c_n, self.c_n)
+        self.relu = nn.ReLU()
+        self.linear = nn.Linear(self.c_n, 1)
+
+    def forward(self,
+                s,
+                local_r: Rigid,
+                ):
+        """
+                Args:
+                    s:
+                        [B, N_rigid, c_n] single embedding
+                    local_r:
+                        [B, N_res, 8] Rigid
+                        StructureModule
+                Returns:
+                    [*, no_angles] predicted angles
+                """
+
+
+        s = self.linear_initial(s)
+        s = self.relu(s)
+        # [B, N_rigid, 1]
+        trans = self.linear(s)
+        rot_shape = local_r.shape
+        # [B, N_res, 5]
+        trans = trans.reshape(rot_shape[0], rot_shape[1], -1)
+
+        all_trans = trans.new_zeros(*rot_shape, 3)
+        all_trans[..., 4:, 0] = trans[...,1:]
+
+        # sth like this
+
+        r_trans = Rigid(Rotation.identity(rot_shape), all_trans)
+        transed_local_r = Rigid_mult(local_r, r_trans)
+
+        return transed_local_r
 
 class StructureUpdateModule(nn.Module):
 
@@ -1031,14 +1074,13 @@ class RigidDiffusion(nn.Module):
                                            no_rigids,
                                            epsilon
         )
+        self.trans_update = TransUpdate(c_n)
 
 
     def forward(self,
-                #side_chain_angles,
-                #ture_angles,
-                #backbone_coords,
-                seq_idx,
                 rigids,
+                local_r,
+                seq_idx,
                 #diffusion_mask,
                 sigma,
                 seq_esm,
@@ -1057,7 +1099,7 @@ class RigidDiffusion(nn.Module):
         E_idx = structure_build_score.update_E_idx(rigids, pair_mask, self.top_k)
 
         # [*, N_rigid, c_n], [*, N_rigid, N_rigid, c_z]
-        init_node_emb, pair_emb, pair_mask_e = self.input_embedder(#side_chain_angles,
+        init_node_emb, pair_emb, pair_mask_e = self.input_embedder(
                                                 seq_esm,
                                                 #diffusion_mask,
                                                 rigid_type,
@@ -1080,12 +1122,11 @@ class RigidDiffusion(nn.Module):
         # Reshape N_rigid into N_res 这里其实一直没有好好写， 这五个rigid的表示直接被拼起来就用来预测角度了，这里是不是应该换一种方法？
         # 直接放到 IPA 里面怎么样
         # node_emb = node_emb.reshape(node_emb.shape[0], -1, node_emb.shape[-1] * 5)
-        # 或许正确的操作应该是 预测noise 用加噪音后的角度-noise 继续， 而不是直接预测角度 然后最后预测noise
 
         score = self.score_predictor(node_emb, init_node_emb)
 
-        #  noise = self.noise_predictor(node_emb, init_node_emb)
+        transed_local_r = self.trans_update(node_emb, local_r)
 
-        return score
+        return score, transed_local_r
 
 

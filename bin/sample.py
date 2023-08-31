@@ -34,7 +34,7 @@ from foldingdiff import utils
 
 import glob
 sys.path.append(r"../write_preds_pdb")
-from structure_build_score import write_preds_pdb_file
+from structure_build_score import write_preds_pdb_file, write_pdb_from_position
 
 
 sys.path.append(r"../foldingdiff")
@@ -404,7 +404,8 @@ def main() -> None:
             continue
       #  print("=============fname=================",structure['fname'])
       #  print("=============seq=================",structure['seq'])
-        sampled = sampling.sample(
+        # [B, T, N, 4]
+        sampled, all_atom_positions = sampling.sample(
             model,
             train_dset,
             structure,
@@ -412,6 +413,7 @@ def main() -> None:
             sweep_lengths=(sweep_min_len, sweep_max_len),
             batch_size=args.batchsize,
         )
+        # [B, N, 4]
         final_sampled = [s[-1] for s in sampled]
         sampled_dfs = [
             pd.DataFrame(s, columns=train_dset.feature_names["angles"])
@@ -427,9 +429,15 @@ def main() -> None:
         for i, s in enumerate(sampled_dfs):
             s.to_csv(sampled_angles_folder / f"{pdbname}_generated_{i}.csv.gz")
         j = 0
+        for atom_positions in all_atom_positions:
+            write_pdb_from_position(structure, atom_positions, outdir_pdb, pdbname, j)
+            j = j + 1
+
+        '''    
         for sampled_angle in final_sampled: 
             write_preds_pdb_file(structure,sampled_angle, outdir_pdb, pdbname, j)
             j = j+1
+        '''
     #============================================sampling========================================
     
     

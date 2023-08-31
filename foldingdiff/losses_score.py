@@ -8,7 +8,7 @@ from torch.nn import functional as F
 
 from foldingdiff import utils
 
-from write_preds_pdb import constant, torus_score
+from write_preds_pdb import constant, torus_score, geometry
 
 SIGMA_MIN= torch.tensor(3e-3)
 SIGMA_MAX = torch.tensor(2)
@@ -237,13 +237,18 @@ def square_chi_loss_with_periodic(
     return sq_chi_loss + angle_norm_weight * angle_norm_loss
 
 def score_loss(predicted_score: torch.Tensor, # [B,N,4]
+               current_local_r: geometry.Rigid,
                known_noise: torch.Tensor, # [B,N,4]
                sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
+               torsion_distance,
                mask: torch.Tensor, # [B,N,4]
-                ):
+               eps: float = 1e-4,
+               clamp_distance: float = 1.0,
+               loss_unit_distance: float = 1.0,
 
-    # Without calculating the pi_periodic!!!!!!!!!!!!!!!!!!!
+               ):
+
     sigma = sigma.unsqueeze(1)
     assert len(sigma.shape) == 2
 
@@ -271,8 +276,16 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-2, -3))
+    # [B, N_res, 8, 3]
+    trans = current_local_r.trans[...,4:,:]
 
-    return loss
+    d_error = torch.sqrt((torch.sum(torsion_distance ** 2, dim=-1)
+                          - torch.sum(trans ** 2, dim=-1)) ** 2 + eps)
+    d_error = torch.clamp(d_error, min=0, max=clamp_distance)
+    # [B, N_res, 4]
+    trans_loss = mask_mean(mask,d_error, dim=(-2, -3))
+
+    return loss + trans_loss
 #=======================================new loss=========================================
 
 def main():

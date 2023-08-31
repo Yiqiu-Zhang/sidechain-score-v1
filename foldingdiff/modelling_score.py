@@ -386,9 +386,8 @@ class AngleDiffusionBase(nn.Module):
 
     def forward(
         self,
-        corrupted_angles: torch.Tensor, #[batch,128,4]
-        #angles: torch.Tensor, #[batch,128,4]
-        backbone_coords: torch.Tensor, #[batch,128,4,3]
+        rigids,
+        local_r,
         seq_idx: torch.Tensor,#[batch,128,4]
        # diffusion_mask: torch.Tensor, #[batch,128,4]
         timestep: torch.Tensor, 
@@ -413,27 +412,14 @@ class AngleDiffusionBase(nn.Module):
         #diffusion_mask = diffusion_mask[..., None]
         #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
 
-        # [*, N_rigid, 4, 2]
-        angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
-        default_r = structure_build_score.get_default_r(seq_idx, corrupted_angles)
-        # [*, N_res] Rigid
-        bb_to_gb = geometry.get_gb_trans(backbone_coords)
-
-        # [*, N_rigid] Rigid
-        rigids, _, _ = structure_build.torsion_to_frame(seq_idx,
-                                                     bb_to_gb,
-                                                     angles_sin_cos,
-                                                     default_r)
-
-
-
-        score = self.encoder(seq_idx,
-                             rigids,
-                             timestep,
-                             x_seq_esm,
-                             x_rigid_type, 
-                             x_rigid_property,
-                             pad_mask,
+        score, trans = self.encoder(rigids,
+                                    local_r,
+                                    seq_idx,
+                                    timestep,
+                                    x_seq_esm,
+                                    x_rigid_type,
+                                    x_rigid_property,
+                                    pad_mask,
         )
 
         return score
@@ -514,12 +500,22 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         """
            Returns the loss terms for the model. Length of the returned list
            is equivalent to the number of features we are fitting to.
-           """
+        """
 
-        predicted_score = self.forward(
-            batch['corrupted'],  # [batch,128,4]
-            #batch["angles"],
-            batch["coords"],  # [batch,128,4,3]
+        angles_sin_cos = torch.stack([torch.sin(batch['corrupted']), torch.cos(batch['corrupted'])], dim=-1)
+        default_r = structure_build_score.get_default_r(batch["seq"], batch['corrupted'])
+        # [*, N_res] Rigid
+        bb_to_gb = geometry.get_gb_trans(batch["coords"])
+
+        # [*, N_rigid] Rigid
+        rigids, current_local_r, _ = structure_build.torsion_to_frame(batch["seq"],
+                                                     bb_to_gb,
+                                                     angles_sin_cos,
+                                                     default_r)
+
+        predicted_score, current_local_r = self.forward(
+            rigids,
+            current_local_r,
             batch["seq"],  # [batch,128,4]
             #diffusion_mask,  # [batch,128,1]
             batch["t"],
@@ -533,9 +529,11 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         loss_terms = loss_fn(
             predicted_score,
+            current_local_r,
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number
+            batch['torsion_distance'],
             batch['chi_mask'],  # [b,L,4]  Padded in chi_mask so no need to use padding mask
         )
 

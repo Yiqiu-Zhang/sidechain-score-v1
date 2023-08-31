@@ -92,7 +92,7 @@ class Rotation:
         rot_mats = rot_mats.expand(*shape, -1, -1)
         rot_mats = rot_mats.contiguous()
 
-        return rot_mats
+        return Rotation(rot_mats)
 
 class Rigid:
     """

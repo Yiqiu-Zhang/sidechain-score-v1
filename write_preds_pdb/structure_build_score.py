@@ -21,7 +21,7 @@ device1 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 def rotate_sidechain(
         restype_idx: torch.Tensor,  # [*, N]
         angles: torch.Tensor,  # [*,N,4，2]
-        last_step_frame: geometry.Rigid,  # [*, N, 8] Rigid
+        last_local_r: geometry.Rigid,  # [*, N, 8] Rigid
 ) -> geometry.Rigid:
     sin_angles = angles[..., 0]  # [*,N,4]
     cos_angles = angles[..., 1]
@@ -49,7 +49,7 @@ def rotate_sidechain(
     # ]
     # This follows the original code rather than the supplement, which uses
     # different indices.
-    all_rots = angles.new_zeros(last_step_frame.rot.get_rot_mat().shape)
+    all_rots = angles.new_zeros(last_local_r.rot.get_rot_mat().shape)
     # print("orign all_rots==",all_rots.shape)
     all_rots[..., 0, 0] = 1
     all_rots[..., 1, 1] = cos_angles
@@ -64,7 +64,7 @@ def rotate_sidechain(
     # print("final all_rots==",all_rots.shape) #torch.Size([128])
 
     # print("default_r==",default_r.shape) #torch.Size([128, 8])
-    all_frames = geometry.Rigid_mult(last_step_frame, all_rots)
+    all_frames = geometry.Rigid_mult(last_local_r, all_rots)
 
     # Rigid
     chi2_frame_to_frame = all_frames[..., 5]
@@ -276,13 +276,13 @@ def torsion_to_frame(aatype_idx: torch.Tensor,  # [*, N]
 
     # side chain frames [*, N, 5] Rigid
     # We create 3 dummy identity matrix for omega and other angles which is not used in the frame attention process
-    sc_to_bb, current_r = rotate_sidechain(aatype_idx, angles_sin_cos, last_step_r)
+    sc_to_bb, local_r = rotate_sidechain(aatype_idx, angles_sin_cos, last_step_r)
     all_frames_to_global = geometry.Rigid_mult(bb_to_gb[..., None], sc_to_bb)
 
     # [*, N_rigid]
     flatten_frame = geometry.flatten_rigid(all_frames_to_global[..., [0, 4, 5, 6, 7]])
 
-    return flatten_frame, current_r, all_frames_to_global
+    return flatten_frame, local_r, all_frames_to_global
 
 
 def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
@@ -333,6 +333,24 @@ def update_E_idx(frames: geometry.Rigid,  # [*, N_rigid] Rigid
 
     return E_idx
 
+def write_pdb_from_position(structure, final_atom_positions, out_path, fname, j):
+
+    final_atom_mask = restype_atom37_mask[structure["seq"]]
+    seq_list = torch.from_numpy(structure["seq"])
+    chain_len = len(seq_list)
+    index = np.arange(1, chain_len + 1)
+
+    resulted_protein = protein.Protein(
+        aatype=structure["seq"],  # [*,N]
+        atom_positions=final_atom_positions,
+        atom_mask=final_atom_mask,
+        residue_index=index,  # 0,1,2,3,4 range_chain
+        b_factors=np.zeros_like(final_atom_mask))
+
+    pdb_str = protein.to_pdb(resulted_protein)
+
+    with open(os.path.join(out_path, f"{fname}_generate_{j}.pdb"), 'w') as fp:
+        fp.write(pdb_str)
 
 def write_preds_pdb_file(structure, sampled_dfs, out_path, fname, j):
     final_atom_mask = restype_atom37_mask[structure["seq"]]
@@ -438,6 +456,7 @@ def rigids_to_torsion_angles(
     # [*, N, 37, 3], [*, N_res, 37] atom position mask
     all_atom_positions, all_atom_mask = atom14_to_atom37_batched(all_pos, aatype_idx)
 
+    # Returns the same result as torsion_to_position but Batched all_atom_positions
 
     aatype = torch.clamp(aatype_idx, max=20)
 
@@ -510,7 +529,7 @@ def rigids_to_torsion_angles(
 
     torsion_angles = torch.atan2(torsion_angles_sin_cos[..., 0], torsion_angles_sin_cos[..., 1])
 
-    return torsion_angles
+    return torsion_angles, all_atom_positions
 
 
 def atom37_to_torsion_angles(
