@@ -164,7 +164,7 @@ def rigid_distance_pdb(pdb_path):
         chain.detach_child(id)
 
     for res_idx, res in enumerate(chain):
-        dihedral_vec_list = [0] * 4
+        dihedral_vec_list = [[0,0,0]] * 4
 
 
         res_name = res.resname
@@ -176,7 +176,7 @@ def rigid_distance_pdb(pdb_path):
             # 但是要是之后要考虑去做成vector loss的话就有点问题了
             vec_atoms_coord = [res[a].get_vector() for a in torsion_atoms]
             dihedral_vec =  vec_atoms_coord[1] - vec_atoms_coord[2]
-            dihedral_vec_list[i] = dihedral_vec
+            dihedral_vec_list[i] = dihedral_vec.get_array()
         torsion_distance_list.append(dihedral_vec_list)
 
     torsion_distance = np.array(torsion_distance_list)

@@ -529,7 +529,7 @@ def rigids_to_torsion_angles(
 
     torsion_angles = torch.atan2(torsion_angles_sin_cos[..., 0], torsion_angles_sin_cos[..., 1])
 
-    return torsion_angles, all_atom_positions
+    return torsion_angles[..., 3:], all_atom_positions
 
 
 def atom37_to_torsion_angles(

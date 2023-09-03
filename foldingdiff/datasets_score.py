@@ -23,8 +23,6 @@ from torch import nn
 from torch.utils.data import Dataset
 
 from ESM1b_embedding import add_esm1b_embedding
-from PDB_processing import rigid_distance_pdb
-
 
 
 LOCAL_DATA_DIR = Path(
@@ -45,7 +43,7 @@ from foldingdiff.angles_and_coords import (
 from foldingdiff import custom_metrics as cm
 from foldingdiff import utils
 
-from foldingdiff.PDB_processing import get_torsion_seq
+from foldingdiff.PDB_processing import get_torsion_seq, rigid_distance_pdb
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
 
@@ -578,20 +576,31 @@ class CathSideChainAnglesDataset(Dataset):
                 with open(self.cache_fname, "wb") as sink:
                     pickle.dump((codebase_hash, self.structures), sink)
             print('===========================lvying Warpping Data_START Finish======================')
-        '''
-
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-        torsion_distance = list(pool.map(rigid_distance_pdb, fnames, chunksize=250))
-
+        
+        
+        self.__clean_mismatched_caches()
+        torsion_distance = self.__compute_rigid_distance_pdb(fnames)
         cache_fname = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/esm3B_cache_canonical_structures_cath_5f78fbaa0daf91473835f7445535dcc2.pkl'
         with open(cache_fname, "rb") as source:
                 logging.info(f"Loading cached full dataset from {cache_fname}")
-                loaded_hash, loaded_structures = pickle.load(source)
+                _, loaded_structures = pickle.load(source)
 
-                for i, structure in enumerate(loaded_structures):
-                    loaded_structures.update({'torsion_distance': torsion_distance[i]})
+        for i, structure in enumerate(loaded_structures):
+            structure.update({'torsion_distance': torsion_distance[i]})
 
-                self.structures = loaded_structures
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/full_data.pkl'
+        with open(full_data_name, 'wb') as file:
+            pickle.dump(loaded_structures, file)
+
+            file.close()
+        '''
+        
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/full_data.pkl'
+        with open(full_data_name, "rb") as file:
+            logging.info(f"Loading cached full dataset from {full_data_name}")
+            loaded_structures = pickle.load(file)
+            
+        self.structures = loaded_structures
 
         # If specified, remove sequences shorter than min_length
         if self.min_length:
@@ -718,6 +727,16 @@ class CathSideChainAnglesDataset(Dataset):
                 logging.info(f"Removing old cache file {fname}")
                 os.remove(fname)
 
+    def __compute_rigid_distance_pdb(self, fnames: Sequence[str]):
+
+        rigid_distance = []
+        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        rigid_distance = list(pool.map(rigid_distance_pdb,fnames, chunksize=250))
+        pool.close()
+        pool.join()
+     
+        return rigid_distance
+    
     def __compute_featurization_sidechain(self, fnames: Sequence[str]):
 
         structures = []
@@ -726,27 +745,9 @@ class CathSideChainAnglesDataset(Dataset):
         pool.close()
         pool.join()
         structures = add_esm1b_embedding(structures,32)
-      #  with open("/mnt/petrelfs/lvying/code/sidechain-diffusion/foldingdiff/wrong_file") as f:
-      #      worng_pdb = f.readlines()
-           # print(worng_pdb)       
-      #  structures = []
-      #  for names in fnames:
-       #     temp = names.replace("/mnt/petrelfs/lvying/code/sidechain-diffusion/data/cath/dompdb/","")+'\n'
-        #    if temp in worng_pdb:
-              #  print(temp)
-         #       continue
-         #   structures.append(acid_embedding(get_torsion_seq(names)))
-        #print("$$$$$$$$$$$$$$$$$$$$$$$structure$$$$$$$$$$$$$$$$$$$",structures[0].keys())
-        #print("$$$$$$$$$$$$$$$$$$$$$$$structure$$$$$$$$$$$$$$$$$$$",len(structures[0]['seq']))
-        #print("$$$$$$$$$$$$$$$$$$$$$$$structure$$$$$$$$$$$$$$$$$$$",structures[0]['coords'].shape)
-        #print("$$$$$$$$$$$$$$$$$$$$$$$structure$$$$$$$$$$$$$$$$$$$",structures[0]['angles'].shape)
-
+        
         return structures
-        # pfunc = functools.partial(get_torsion_seq)
-        # pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-        # struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
-        # pool.close()
-        # pool.join()
+
     '''
     def __compute_featurization(
             self, fnames: Sequence[str]
@@ -823,6 +824,7 @@ class CathSideChainAnglesDataset(Dataset):
         rigid_type_onehot = self.structures[index]["rigid_type_onehot"]
         rigid_property = self.structures[index]["rigid_property"]
         temp_name = self.structures[index]["fname"]
+        torsion_distance = self.structures[index]["torsion_distance"]
        # print("&&&&&&&&&&&&&&&&&&&&&&&&angles&&&&&&&&&&&&&&&&&&",angles.shape)
        # print("&&&&&&&&&&&&&&&&&&&&&&&&coords&&&&&&&&&&&&&&&&&&",coords.shape)
        # print("&&&&&&&&&&&&&&&&&&&&&&&&seq&&&&&&&&&&&&&&&&&&",seq.shape)
@@ -895,6 +897,12 @@ class CathSideChainAnglesDataset(Dataset):
                 mode="constant",
                 constant_values=0,
             )
+            torsion_distance = np.pad(
+                torsion_distance,
+                ((0, self.pad - torsion_distance.shape[0]), (0, 0), (0, 0)),
+                mode="constant",
+                constant_values=0,
+            )
             seq = np.pad(
                 seq,
                 ((0, self.pad - seq.shape[0])),
@@ -920,6 +928,7 @@ class CathSideChainAnglesDataset(Dataset):
                 coords = coords[: self.pad]
                 acid_embedding = acid_embedding[: self.pad]
                 chi_mask = chi_mask[: self.pad]
+                torsion_distance = torsion_distance[: self.pad]
                 seq = seq[: self.pad]
                 rigid_type_onehot = rigid_type_onehot[: self.pad]
                 rigid_property = rigid_property[: self.pad]
@@ -943,6 +952,7 @@ class CathSideChainAnglesDataset(Dataset):
                 coords = coords[start_idx:end_idx]
                 acid_embedding = acid_embedding[start_idx:end_idx]
                 chi_mask = chi_mask[start_idx:end_idx]
+                torsion_distance = torsion_distance[start_idx:end_idx]
                 seq = seq[start_idx:end_idx]
                 rigid_type_onehot = rigid_type_onehot[start_idx:end_idx]
                 rigid_property = rigid_property[start_idx:end_idx]
@@ -971,6 +981,7 @@ class CathSideChainAnglesDataset(Dataset):
         coords = torch.from_numpy(coords)
         acid_embedding = torch.from_numpy(acid_embedding)
         chi_mask = torch.from_numpy(chi_mask)
+        torsion_distance = torch.from_numpy(torsion_distance)
         rigid_type_onehot = torch.from_numpy(rigid_type_onehot)
         rigid_property = torch.from_numpy(rigid_property)
       #  print("===============================", type(seq))
@@ -985,6 +996,7 @@ class CathSideChainAnglesDataset(Dataset):
             "seq": seq,
             "acid_embedding": acid_embedding,
             "chi_mask": chi_mask, # chi_mask is enough to use for all the masked condition
+            'torsion_distance': torsion_distance,
             'rigid_type_onehot': rigid_type_onehot, #(L,5,20)
             'rigid_property': rigid_property, # (L,5,6)
         }

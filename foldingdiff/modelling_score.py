@@ -422,7 +422,7 @@ class AngleDiffusionBase(nn.Module):
                                     pad_mask,
         )
 
-        return score
+        return score, trans
 
 class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
     """
@@ -513,17 +513,16 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
                                                      angles_sin_cos,
                                                      default_r)
 
-        predicted_score, current_local_r = self.forward(
-            rigids,
-            current_local_r,
-            batch["seq"],  # [batch,128,4]
-            #diffusion_mask,  # [batch,128,1]
-            batch["t"],
-            batch["acid_embedding"],  # [batch,128,1024]
-            batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
-            batch['rigid_property'],  # [batch,128,5,6]
-            batch["attn_mask"],
-        )
+        predicted_score, current_local_r = self.forward(rigids,
+                                                        current_local_r,
+                                                        batch["seq"],  # [batch,128,4]
+                                                        #diffusion_mask,  # [batch,128,1]
+                                                        batch["t"],
+                                                        batch["acid_embedding"],  # [batch,128,1024]
+                                                        batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
+                                                        batch['rigid_property'],  # [batch,128,5,6]
+                                                        batch["attn_mask"],
+                                                    )
 
         loss_fn = self.angular_loss_fn_dict['score_loss']
 
@@ -638,12 +637,12 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         # Note that this method is called before zstraining_epoch_end().
         losses = torch.stack([o["val_loss"] for o in outputs])
         mean_loss = torch.mean(losses)
-        '''
+        
         loss_dict = {
             "mean_loss": mean_loss
         }
         self.log_dict(loss_dict, rank_zero_only=True)
-        '''
+        
         pl.utilities.rank_zero_info(
             f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
         )

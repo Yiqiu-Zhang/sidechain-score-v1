@@ -230,6 +230,8 @@ def build_callbacks(
     os.makedirs(os.path.join(outdir, "logs/lightning_logs"), exist_ok=True)
     os.makedirs(os.path.join(outdir, "models/best_by_valid"), exist_ok=True)
     os.makedirs(os.path.join(outdir, "models/best_by_train"), exist_ok=True)
+    os.makedirs(os.path.join(outdir, "models/best_by_valid_average"), exist_ok=True)
+
     callbacks = [
         pl.callbacks.ModelCheckpoint(
             monitor="val_loss",
@@ -241,6 +243,13 @@ def build_callbacks(
         pl.callbacks.ModelCheckpoint(
             monitor="train_loss",
             dirpath=os.path.join(outdir, "models/best_by_train"),
+            save_top_k=5,
+            save_weights_only=False,
+            mode="min",
+        ),
+        pl.callbacks.ModelCheckpoint(
+            monitor="mean_loss",
+            dirpath=os.path.join(outdir, "models/best_by_valid_average"),
             save_top_k=5,
             save_weights_only=False,
             mode="min",
@@ -508,7 +517,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=min(1, len(train_dataloader)),  # Log >= once per epoch
+        log_every_n_steps=min(200, len(train_dataloader)),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
         gpus=ngpu,

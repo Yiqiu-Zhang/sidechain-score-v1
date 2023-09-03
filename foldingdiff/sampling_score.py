@@ -23,7 +23,7 @@ from write_preds_pdb import structure_build_score as structure_build, \
     geometry
 
 # return all frame instead of sidechain rigid frame 
-def rigid_apply_update(seq, bb_to_gb, delta_chi,trans_x, current_local):
+def rigid_apply_update(seq, bb_to_gb, delta_chi, current_local):
     return structure_build.torsion_to_frame(seq, bb_to_gb, delta_chi, current_local)
 
 @torch.no_grad()
@@ -83,7 +83,7 @@ def p_sample_loop_score(
                                                                            perturb_sin_cos,
                                                                            current_local_r)
         
-        corrupted_angles, all_atom_positions = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)[..., 3:]
+        corrupted_angles, all_atom_positions = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)
         imgs.append(corrupted_angles.cpu())
 
     # Only the final atom position is returned [T,B, N, 4],[B, N, 37, 3]

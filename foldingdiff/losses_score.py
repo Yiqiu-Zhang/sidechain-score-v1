@@ -244,8 +244,8 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                torsion_distance,
                mask: torch.Tensor, # [B,N,4]
                eps: float = 1e-4,
-               clamp_distance: float = 1.0,
-               loss_unit_distance: float = 1.0,
+               clamp_distance: float = 0.2,
+               loss_unit_distance: float = 0.2,
 
                ):
 
@@ -283,9 +283,9 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                           - torch.sum(trans ** 2, dim=-1)) ** 2 + eps)
     d_error = torch.clamp(d_error, min=0, max=clamp_distance)
     # [B, N_res, 4]
-    trans_loss = mask_mean(mask,d_error, dim=(-2, -3))
+    trans_loss = mask_mean(mask, d_error, dim=(-2, -3))
 
-    return loss + trans_loss
+    return loss + 0.5*trans_loss
 #=======================================new loss=========================================
 
 def main():

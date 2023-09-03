@@ -1026,7 +1026,7 @@ class RigidDiffusion(nn.Module):
                  no_angles: int = 4, # predict chi 1-4 4 angles
                  no_rigids: int = 5, # number of rigids to concate togather
                  epsilon: int = 1e-7,
-                 top_k: int =64,
+                 top_k: int =32,
                  ):
 
         super(RigidDiffusion, self).__init__()
