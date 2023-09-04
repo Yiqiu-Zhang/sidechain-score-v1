@@ -85,6 +85,11 @@ def p_sample_loop_score(
         
         corrupted_angles, all_atom_positions = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)
         imgs.append(corrupted_angles.cpu())
+    
+    # this is just for convinient use of the backbone coordinate
+    # [B, N, 37, 3] [B,N,4,3]
+    all_atom_positions[...,:3,:] = coords[...,:3,:]
+    all_atom_positions[...,4,:] = coords[...,3,:]
 
     # Only the final atom position is returned [T,B, N, 4],[B, N, 37, 3]
     return torch.stack(imgs), all_atom_positions

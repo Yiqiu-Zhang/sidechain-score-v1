@@ -281,11 +281,11 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
 
     d_error = torch.sqrt((torch.sum(torsion_distance ** 2, dim=-1)
                           - torch.sum(trans ** 2, dim=-1)) ** 2 + eps)
-    d_error = torch.clamp(d_error, min=0, max=clamp_distance)
+    d_error = torch.clamp(d_error, min=0, max=clamp_distance)* torch.exp(-sigma_idx/100)[...,None]
     # [B, N_res, 4]
-    trans_loss = mask_mean(mask, d_error, dim=(-2, -3))
+    trans_loss = mask_mean(mask, d_error, dim=(-2, -3)) 
 
-    return loss + 0.5*trans_loss
+    return loss + trans_loss
 #=======================================new loss=========================================
 
 def main():
