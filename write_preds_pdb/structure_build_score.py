@@ -237,6 +237,8 @@ def torsion_to_position(aatype_idx: torch.Tensor,  # [*, N]
     #    print('all_frames_to_global==============', all_frames_to_global.shape)
     # [*, N, 14, 3]
     all_pos = frame_to_pos(all_frames_to_global, aatype_idx)
+    all_pos[..., :4, :] = backbone_position
+
     # print('all_pose=============', all_pos.shape)
     # [*, N, 37, 3]
     #   print('aaidx type ===================== ',type(aatype_idx))
