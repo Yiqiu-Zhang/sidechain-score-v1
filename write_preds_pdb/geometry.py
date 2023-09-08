@@ -447,7 +447,7 @@ def get_gb_trans(bb_pos: torch.Tensor) -> Rigid: # [*,128,4,3]
         x1, y1, z1 = torch.unbind(b, dim=-1)
         x2, y2, z2 = torch.unbind(a, dim=-1)
 
-        return x1 * x2 + y1 * y2 + z1 * z1
+        return x1 * x2 + y1 * y2 + z1 * z2
 
     ey = y_vec - dot(y_vec, ex_norm).unsqueeze(-1) * ex_norm
     ey_norm = ey / torch.linalg.norm(ey, dim=-1).unsqueeze(-1)
