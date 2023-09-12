@@ -286,7 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-b",
         "--batchsize",
         type=int,
-        default=512,
+        default=10,
         help="Batch size to use when sampling. 256 consumes ~2GB of GPU memory, 512 ~3.5GB",
     )
     parser.add_argument(
@@ -354,33 +354,6 @@ def main() -> None:
     plotdir = outdir / "plots"
     os.makedirs(plotdir, exist_ok=True)
 
-    # Load the dataset based on training args
-    train_dset, _, test_dset = build_datasets(
-        Path(args.model), load_actual=args.testcomparison
-    )
-   # phi_idx = test_dset.feature_names["angles"].index("phi")
-   # psi_idx = test_dset.feature_names["angles"].index("psi")
-    # Fetch values for training distribution
-    select_by_attn = lambda x: x["angles"][x["attn_mask"] != 0]
-    
-    if args.testcomparison: #false
-        test_values = [
-            select_by_attn(test_dset.dset.__getitem__(i, ignore_zero_center=True))
-            for i in range(len(test_dset))
-        ]
-        test_values_stacked = torch.cat(test_values, dim=0).cpu().numpy()
-
-        # Plot ramachandran plot for the training distribution
-        # Default figure size is 6.4x4.8 inches
-        plot_ramachandran(
-  #          test_values_stacked[:, phi_idx],
-  #          test_values_stacked[:, psi_idx],
-            annot_ss=True,
-            fname=plotdir / "ramachandran_test_annot.pdf",
-        )
-    else:
-        test_values_stacked = None
-    
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
     print('==========================lvying===================',args.model)
@@ -393,41 +366,27 @@ def main() -> None:
     #============================================sampling========================================
 
     structures = get_pdb_data(args.CATH_DIR)
-    structures = add_esm1b_embedding(structures,32)
+    structures = add_esm1b_embedding(structures,16)
     sampled_angles_folder = outdir / "sampled_angles"
     os.makedirs(sampled_angles_folder, exist_ok=True)
     outdir_pdb = outdir / "sampled_pdb"
     os.makedirs(outdir_pdb, exist_ok=True)
     for structure in structures:
-        sweep_min_len, sweep_max_len = args.lengths
         if len(structure['seq'])>128:
             continue
       #  print("=============fname=================",structure['fname'])
       #  print("=============seq=================",structure['seq'])
         # [B, T, N, 4]
-        sampled, all_atom_positions = sampling.sample(
-            model,
-            train_dset,
-            structure,
-            n=args.num,
-            sweep_lengths=(sweep_min_len, sweep_max_len),
-            batch_size=args.batchsize,
-        )
+        sampled, all_atom_positions = sampling.sample(model,
+                                                    structure,
+                                                    batch=args.batchsize,
+                                                    )
         # [B, N, 4]
         final_sampled = [s[-1] for s in sampled]
-        sampled_dfs = [
-            pd.DataFrame(s, columns=train_dset.feature_names["angles"])
-            for s in final_sampled
-        ]
+       
         # Write the raw sampled items to csv files
-        logging.info(f"Writing sampled angles to {sampled_angles_folder}")
-       # print(structure['fname'])
-       # print(type(structure['fname']))
         pdbname = Path(structure['fname']).name
-        #print(pdbname)
-        #print(type(pdbname))
-        for i, s in enumerate(sampled_dfs):
-            s.to_csv(sampled_angles_folder / f"{pdbname}_generated_{i}.csv.gz")
+
         j = 0
         for atom_positions in all_atom_positions:
             write_pdb_from_position(structure, atom_positions, outdir_pdb, pdbname, j)
@@ -439,153 +398,6 @@ def main() -> None:
             j = j+1
         '''
     #============================================sampling========================================
-    
-    
-    
-    
-    
-    '''
-    # Checks
-    sweep_min_len, sweep_max_len = args.lengths
-    assert sweep_min_len < sweep_max_len
-    assert sweep_max_len <= train_dset.dset.pad
-
-    # Perform sampling
-    torch.manual_seed(args.seed)
-    
-    sampled = sampling.sample(
-        model,
-        train_dset,
-        n=args.num,
-        sweep_lengths=(sweep_min_len, sweep_max_len),
-        batch_size=args.batchsize,
-    )
-    #print("==============sampled================",sampled)
-    print("==============sampled================",len(sampled))
-    
-    final_sampled = [s[-1] for s in sampled]
-   # print("==============sampled================",final_sampled)
-    print("==============sampled================",len(final_sampled))
-    
-    sampled_dfs = [
-        pd.DataFrame(s, columns=train_dset.feature_names["angles"])
-        for s in final_sampled
-    ]
-   # print("==============sampled================",sampled_dfs)
-    print("==============sampled================",len(sampled_dfs))
-    # Write the raw sampled items to csv files
-    sampled_angles_folder = outdir / "sampled_angles"
-    os.makedirs(sampled_angles_folder, exist_ok=True)
-    logging.info(f"Writing sampled angles to {sampled_angles_folder}")
-    for i, s in enumerate(sampled_dfs):
-        s.to_csv(sampled_angles_folder / f"generated_{i}.csv.gz")
-    
-    # Write the sampled angles as pdb 
-    outdir_pdb = outdir / "sampled_pdb"
-    os.makedirs(outdir_pdb, exist_ok=True)
-    
-    write_preds_pdb_file(train_dset, final_sampled, outdir_pdb)
-    
-    #pdb_files = write_preds_pdb_folder(sampled_dfs, outdir / "sampled_pdb")
-     
-     
-    # If full history is specified, create a separate directory and write those files
-    if args.fullhistory:
-        # Write the angles
-        full_history_angles_dir = sampled_angles_folder / "sample_history"
-        os.makedirs(full_history_angles_dir)
-        full_history_pdb_dir = outdir / "sampled_pdb/sample_history"
-        os.makedirs(full_history_pdb_dir)
-        # sampled is a list of np arrays
-        for i, sampled_series in enumerate(sampled):
-            snapshot_dfs = [
-                pd.DataFrame(snapshot, columns=train_dset.feature_names["angles"])
-                for snapshot in sampled_series
-            ]
-            # Write the angles
-            ith_angle_dir = full_history_angles_dir / f"generated_{i}"
-            os.makedirs(ith_angle_dir, exist_ok=True)
-            for timestep, snapshot_df in enumerate(snapshot_dfs):
-                snapshot_df.to_csv(
-                    ith_angle_dir / f"generated_{i}_timestep_{timestep}.csv.gz"
-                )
-            # Write the pdb files
-            ith_pdb_dir = full_history_pdb_dir / f"generated_{i}"
-            write_preds_pdb_folder(
-                snapshot_dfs, ith_pdb_dir, basename_prefix=f"generated_{i}_timestep_"
-            )
-    '''
-    '''
-    # Generate histograms of sampled angles -- separate plots, and a combined plot
-    # For calculating angle distributions
-    multi_fig, multi_axes = plt.subplots(
-        dpi=300, nrows=2, ncols=3, figsize=(14, 6), sharex=True
-    )
-    step_multi_fig, step_multi_axes = plt.subplots(
-        dpi=300, nrows=2, ncols=3, figsize=(14, 6), sharex=True
-    )
-    final_sampled_stacked = np.vstack(final_sampled)
-    for i, ft_name in enumerate(test_dset.feature_names["angles"]):
-        orig_values = (
-            test_values_stacked[:, i] if test_values_stacked is not None else None
-        )
-        samp_values = final_sampled_stacked[:, i]
-
-        ft_name_readable = FT_NAME_MAP[ft_name]
-
-        # Plot single plots
-        plot_distribution_overlap(
-            {"Test": orig_values, "Sampled": samp_values},
-            title=f"Sampled angle distribution - {ft_name_readable}",
-            fname=plotdir / f"dist_{ft_name}.pdf",
-        )
-        plot_distribution_overlap(
-            {"Test": orig_values, "Sampled": samp_values},
-            title=f"Sampled angle CDF - {ft_name_readable}",
-            histtype="step",
-            cumulative=True,
-            fname=plotdir / f"cdf_{ft_name}.pdf",
-        )
-
-        # Plot combo plots
-        plot_distribution_overlap(
-            {"Test": orig_values, "Sampled": samp_values},
-            title=f"Sampled angle distribution - {ft_name_readable}",
-            ax=multi_axes.flatten()[i],
-            show_legend=i == 0,
-        )
-        plot_distribution_overlap(
-            {"Test": orig_values, "Sampled": samp_values},
-            title=f"Sampled angle CDF - {ft_name_readable}",
-            cumulative=True,
-            histtype="step",
-            ax=step_multi_axes.flatten()[i],
-            show_legend=i == 0,
-        )
-    multi_fig.savefig(plotdir / "dist_combined.pdf", bbox_inches="tight")
-    step_multi_fig.savefig(plotdir / "cdf_combined.pdf", bbox_inches="tight")
-
-    # Generate ramachandran plot for sampled angles
-    plot_ramachandran(
-        final_sampled_stacked[:, phi_idx],
-        final_sampled_stacked[:, psi_idx],
-        fname=plotdir / "ramachandran_generated.pdf",
-    )
-
-    # Generate plots of secondary structure co-occurrence
-    make_ss_cooccurrence_plot(
-        pdb_files,
-        str(outdir / "plots" / "ss_cooccurrence_sampled.pdf"),
-        threads=multiprocessing.cpu_count(),
-    )
-    if args.testcomparison:
-        make_ss_cooccurrence_plot(
-            test_dset.filenames,
-            str(outdir / "plots" / "ss_cooccurrence_test.pdf"),
-            max_seq_len=test_dset.dset.pad,
-            threads=multiprocessing.cpu_count(),
-        )
-    '''
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

@@ -387,7 +387,7 @@ class AngleDiffusionBase(nn.Module):
     def forward(
         self,
         rigids,
-        local_r,
+        #local_r,
         seq_idx: torch.Tensor,#[batch,128,4]
        # diffusion_mask: torch.Tensor, #[batch,128,4]
         timestep: torch.Tensor, 
@@ -412,17 +412,18 @@ class AngleDiffusionBase(nn.Module):
         #diffusion_mask = diffusion_mask[..., None]
         #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
 
-        score, trans = self.encoder(rigids,
-                                    local_r,
-                                    seq_idx,
-                                    timestep,
-                                    x_seq_esm,
-                                    x_rigid_type,
-                                    x_rigid_property,
-                                    pad_mask,
+        #, trans
+        score = self.encoder(rigids, 
+                            #local_r,
+                            seq_idx,
+                            timestep,
+                            x_seq_esm,
+                            x_rigid_type,
+                            x_rigid_property,
+                            pad_mask,
         )
 
-        return score, trans
+        return score#, trans
 
 class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
     """
@@ -512,23 +513,23 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
                                                      bb_to_gb,
                                                      angles_sin_cos,
                                                      default_r)
-
-        predicted_score, current_local_r = self.forward(rigids,
-                                                        current_local_r,
-                                                        batch["seq"],  # [batch,128,4]
-                                                        #diffusion_mask,  # [batch,128,1]
-                                                        batch["t"],
-                                                        batch["acid_embedding"],  # [batch,128,1024]
-                                                        batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
-                                                        batch['rigid_property'],  # [batch,128,5,6]
-                                                        batch["attn_mask"],
-                                                    )
+        # , current_local_r
+        predicted_score = self.forward(rigids,
+                                    #current_local_r,
+                                    batch["seq"],  # [batch,128,4]
+                                    #diffusion_mask,  # [batch,128,1]
+                                    batch["t"],
+                                    batch["acid_embedding"],  # [batch,128,1024]
+                                    batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
+                                    batch['rigid_property'],  # [batch,128,5,6]
+                                    batch["attn_mask"],
+                                )
 
         loss_fn = self.angular_loss_fn_dict['score_loss']
 
         loss_terms = loss_fn(
             predicted_score,
-            current_local_r,
+            #current_local_r,
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number

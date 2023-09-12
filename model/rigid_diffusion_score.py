@@ -286,8 +286,8 @@ class InputEmbedder(nn.Module):
         pair_mask_e = gather_edges(pair_mask.unsqueeze(-1), E_idx).squeeze(-1)
 
         pair_feature = torch.cat([distance_rbf, 
-                                  altered_direction,
-                                  quaternions,
+                                  #altered_direction,
+                                  #quaternions,
                                   nf_pair_feature, 
                                   relative_pos],
                                   dim = -1).float()
@@ -1006,7 +1006,7 @@ class RigidDiffusion(nn.Module):
                  edge_type: int = 10,
 
                  # PairEmbedder parameter
-                 pair_dim: int = 16+3+4 + 346 * 2 + 2*16 + 1 + 10, # rbf + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
+                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
                  c_z: int = 64, # Pair channel dimension after InputEmbedding
                  c_hidden_tri_att: int = 16, # x2 cause we x2 the input dimension
                  c_hidden_tri_mul: int = 32, # Keep ori
@@ -1026,7 +1026,7 @@ class RigidDiffusion(nn.Module):
                  no_angles: int = 4, # predict chi 1-4 4 angles
                  no_rigids: int = 5, # number of rigids to concate togather
                  epsilon: int = 1e-7,
-                 top_k: int =32,
+                 top_k: int =64,
                  ):
 
         super(RigidDiffusion, self).__init__()
@@ -1074,12 +1074,12 @@ class RigidDiffusion(nn.Module):
                                            no_rigids,
                                            epsilon
         )
-        self.trans_update = TransUpdate(c_n)
+        #self.trans_update = TransUpdate(c_n)
 
 
     def forward(self,
                 rigids,
-                local_r,
+                #local_r,
                 seq_idx,
                 #diffusion_mask,
                 sigma,
@@ -1125,8 +1125,8 @@ class RigidDiffusion(nn.Module):
 
         score = self.score_predictor(node_emb, init_node_emb)
 
-        transed_local_r = self.trans_update(node_emb, local_r)
+        #transed_local_r = self.trans_update(node_emb, local_r)
 
-        return score, transed_local_r
+        return score#, transed_local_r
 
 

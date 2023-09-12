@@ -59,30 +59,36 @@ def p_sample_loop_score(
     pad_mask = torch.zeros(corrupted_angles.shape[:2], device=corrupted_angles.device)
     for i, l in enumerate(seq_lens):
         pad_mask[i, :l] = 1.0
-    # print('======angles_sin_cos=====',angles_sin_cos.shape)
+
     imgs = []
-    #for sigma_idx, sigma in enumerate(sigma_schedule):
+
     for sigma in tqdm(sigma_schedule):
 
         sigma = torch.unsqueeze(sigma, 0)
-        score, current_local_r = model(rigids,
-                                       current_local_r,
-                                      seq,
-                                      sigma,
-                                      acid_embedding,
-                                      rigid_type,
-                                      rigid_property,
-                                      pad_mask)
-
+        # , current_r
+        score= model(rigids,
+                        #current_local_r,
+                        seq,
+                        sigma,
+                        acid_embedding,
+                        rigid_type,
+                        rigid_property,
+                        pad_mask)
+        '''
+        if sigma <0.0:
+            current_local_r = current_r
+            print('updating torsion distance')
+        '''
         g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min)))
         z = torch.normal(mean=0, std=1, size= score.shape)
         perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
         perturb_sin_cos = torch.stack((torch.sin(perturb), torch.cos(perturb)), -1)
         rigids, current_local_r, all_frames_to_global = rigid_apply_update(seq,
-                                                                           bb_to_gb,
-                                                                           perturb_sin_cos,
-                                                                           current_local_r)
-        
+                                                                        bb_to_gb,
+                                                                        perturb_sin_cos,
+                                                                        current_local_r)
+            
+
         corrupted_angles, all_atom_positions = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)
         imgs.append(corrupted_angles.cpu())
     
@@ -96,13 +102,8 @@ def p_sample_loop_score(
 
 def sample(
     model: nn.Module,
-    train_dset: dsets.NoisedAnglesDataset,
     structure, # a single data dictionary in the dataset
-    n: int = 10,
-    sweep_lengths: Optional[Tuple[int, int]] = (50, 128),
-    batch_size: int = 1,
-    feature_key: str = "angles",
-    disable_pbar: bool = False,
+    batch: int = 10,
 ) -> List[np.ndarray]:
     """
     Sample from the given model. Use the train_dset to generate noise to sample
@@ -117,23 +118,7 @@ def sample(
     - pad - provided by *wrapped dataset* under NoisedAnglesDataset
     And optionally, sample_length()
     """
-    # Process each batch
-    if sweep_lengths is not None:
-        sweep_min, sweep_max = sweep_lengths
-        logging.info(
-            f"Sweeping from {sweep_min}-{sweep_max} with {n} examples at each length"
-        )
-        lengths = []
-        for l in range(sweep_min, sweep_max):
-            lengths.extend([l] * n)
-    else:
-        lengths = [train_dset.sample_length() for _ in range(n)]
 
-    lengths_chunkified = [
-        lengths[i : i + batch_size] for i in range(0, len(lengths), batch_size)
-    ]
-
-    logging.info(f"Sampling {len(lengths)} items in batches of size {batch_size}")
     retval = []
     temp_c = structure["coords"]
     temp_c = torch.from_numpy(temp_c)
@@ -149,43 +134,41 @@ def sample(
     temp_rp= torch.from_numpy(temp_rp)
     
     
-    for this_lengths in lengths_chunkified:
-        torch.cuda.empty_cache()
-        batch = len(this_lengths)
-        # batch is always one, should we set this batch size to N
-        # so we can generate N sample at a single time ?????????
-        # Sample noise and sample the lengths
-        coords = temp_c.repeat(batch,1,1,1).cuda()
-        acid_embedding = temp_e.repeat(batch,1,1).cuda()
-        seq = temp_s.unsqueeze(1).repeat(batch,1,1).cuda().squeeze(-1)
-        chi_mask = temp_chi.repeat(batch,1,1).cuda()
-        rigid_type = temp_rt.repeat(batch,1,1,1).cuda()
-        rigid_property = temp_rp.repeat(batch,1,1,1).cuda()
+    torch.cuda.empty_cache()
+    # batch is always one, should we set this batch size to N
+    # so we can generate N sample at a single time ?????????
+    # Sample noise and sample the lengths
+    coords = temp_c.repeat(batch,1,1,1).cuda()
+    acid_embedding = temp_e.repeat(batch,1,1).cuda()
+    seq = temp_s.unsqueeze(1).repeat(batch,1,1).cuda().squeeze(-1)
+    chi_mask = temp_chi.repeat(batch,1,1).cuda()
+    rigid_type = temp_rt.repeat(batch,1,1,1).cuda()
+    rigid_property = temp_rp.repeat(batch,1,1,1).cuda()
 
-        # [b,n,f]
-        m = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
-        corrupted_angles = m.sample((batch,
-                          seq.shape[-1], # sequence length
-                          model.n_inputs))
+    # [b,n,f]
+    m = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
+    corrupted_angles = m.sample((batch,
+                        seq.shape[-1], # sequence length
+                        model.n_inputs))
 
-        # Produces (timesteps, batch_size, seq_len, n_ft)
-        this_lengths =  [seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1]]
-        sampled, all_atom_positions = p_sample_loop_score(model,
-                                      coords,
-                                      seq,
-                                      acid_embedding,
-                                      rigid_type,
-                                      rigid_property,
-                                      this_lengths,
-                                      corrupted_angles,
-        )
-        # [B, T, N, 4]
-        # Gets to size (timesteps, seq_len, n_ft)
-        trimmed_sampled = [
-            sampled[:, i, :l, :].numpy() for i, l in enumerate(this_lengths)
-        ]
+    # Produces (timesteps, batch_size, seq_len, n_ft)
+    this_lengths =  [seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1]]
+    sampled, all_atom_positions = p_sample_loop_score(model,
+                                    coords,
+                                    seq,
+                                    acid_embedding,
+                                    rigid_type,
+                                    rigid_property,
+                                    this_lengths,
+                                    corrupted_angles,
+    )
+    # [B, T, N, 4]
+    # Gets to size (timesteps, seq_len, n_ft)
+    trimmed_sampled = [
+        sampled[:, i, :l, :].numpy() for i, l in enumerate(this_lengths)
+    ]
 
-        retval.extend(trimmed_sampled)
+    retval.extend(trimmed_sampled)
 
     return retval, all_atom_positions
 
