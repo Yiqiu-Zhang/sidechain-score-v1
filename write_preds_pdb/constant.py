@@ -226,9 +226,9 @@ residues_atom_position = {
         ['C', 0, (1.527, -0.000, 0.000)],
         ['CB', 0, (-0.546, -0.611, -1.293)],
         ['O', 3, (0.621, 1.066, 0.000)],
-        ['CG', 0, (0.382, 1.445, 0.0)], # from group 5 to group 0
-        ['CD', 0, (0.427, 1.440, 0.0)], # from group 5 to group 0, using the correct angle.
-        #['CD', 5, (0.477, 1.424, 0.0)],  # manually made angle 2 degrees larger
+        ['CG', 4, (0.382, 1.445, 0.0)], 
+        #['CD', 5, (0.427, 1.440, 0.0)], # using the correct angle.
+        ['CD', 5, (0.477, 1.424, 0.0)],  # manually made angle 2 degrees larger
     ],
     'SER': [
         ['N', 0, (-0.529, 1.360, -0.000)],
@@ -338,8 +338,7 @@ restype_frame_mask = [
     [1.0, 1.0, 1.0, 1.0, 1.0],  # LYS
     [1.0, 1.0, 1.0, 1.0, 0.0],  # MET
     [1.0, 1.0, 1.0, 0.0, 0.0],  # PHE
-    [1.0, 0.0, 0.0, 0.0, 0.0],  # PRO # only PRO different from Alphafold chi_angles_mask
-    [1.0, 1.0, 0.0, 0.0, 0.0],  # SER
+    [1.0, 1.0, 1.0, 0.0, 0.0],  # PRO 
     [1.0, 1.0, 0.0, 0.0, 0.0],  # THR
     [1.0, 1.0, 1.0, 0.0, 0.0],  # TRP
     [1.0, 1.0, 1.0, 0.0, 0.0],  # TYR

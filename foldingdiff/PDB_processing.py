@@ -52,7 +52,7 @@ chi_angles_atoms = {
         ["CB", "CG", "SD", "CE"],
     ],
     "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "PRO": [], #[["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]] PRO chi angle was replaced to 0, 为了把PRO看作一个刚体
+    "PRO": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]], #[] PRO chi angle was replaced to 0, 为了把PRO看作一个刚体
     "SER": [["N", "CA", "CB", "OG"]],
     "THR": [["N", "CA", "CB", "OG1"]],
     "TRP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
@@ -101,11 +101,11 @@ restype_name_to_rigid_idx = {
     "LYS": [1,8,8,8,18],
     "MET": [1,8,8,11],
     "PHE": [1,8,12],
-    "PRO": [3],
+    "PRO": [3,3,3],
     "SER": [1,4],
     "THR": [1,5],
-    "TRP": [1,8,14],
-    "TYR": [1,8,13],
+    "TRP": [1,9,14],
+    "TYR": [1,9,13],
     "VAL": [1,7],
     "UNK": [1], #给 UNKNOWN res 只添加主链 rigid 其他原子先不管
 }
@@ -122,7 +122,7 @@ rigid_type_property = [
     [0,0,0,0,0,0], # Mask with no type
     [1,0,0,0,0,0],
     [1,0,0,0,0,0],
-    [1,0,0,0,0,0],
+    [1,0,0,0,0,0],# PRO
     [0,1,0,0,0,0],
     [0,1,0,0,0,0],
     [0,1,0,0,0,0],
