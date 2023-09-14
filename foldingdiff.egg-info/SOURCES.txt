@@ -3,7 +3,7 @@ README.md
 pyproject.toml
 setup.py
 foldingdiff/ESM1b_embedding.py
-foldingdiff/PDB_processing.py
+foldingdiff/process_pdb.py
 foldingdiff/__init__.py
 foldingdiff/angles_and_coords.py
 foldingdiff/beta_schedules.py

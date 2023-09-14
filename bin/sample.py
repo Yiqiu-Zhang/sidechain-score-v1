@@ -39,7 +39,7 @@ from structure_build_score import write_preds_pdb_file, write_pdb_from_position
 
 sys.path.append(r"../foldingdiff")
 from ESM1b_embedding import add_esm1b_embedding
-from PDB_processing import get_torsion_seq
+from data_pipeline import process_pdb
 
 # :)
 SEED = int(
@@ -320,7 +320,7 @@ def get_pdb_data(CATH_DIR):
     fnames = glob.glob(os.path.join(CATH_DIR, "*"))
     structures = []
     pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-    structures = list(pool.map(get_torsion_seq,fnames, chunksize=250))
+    structures = list(pool.map(process_pdb,fnames, chunksize=250))
     pool.close()
     pool.join()
 

@@ -5,6 +5,8 @@ import string
 
 import constant
 import numpy as np
+import io
+from Bio.PDB import PDBParser
 
 @dataclasses.dataclass(frozen=True)
 class Protein:
@@ -130,3 +132,101 @@ def to_pdb(prot: Protein) -> str:
     pdb_lines.append("END")
     pdb_lines.append("")
     return "\n".join(pdb_lines)
+
+def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
+    """Takes a PDB string and constructs a Protein object.
+
+    WARNING: All non-standard residue types will be converted into UNK. All
+      non-standard atoms will be ignored.
+
+    Args:
+      pdb_str: The contents of the pdb file
+      chain_id: If None, then the pdb file must contain a single chain (which
+        will be parsed). If chain_id is specified (e.g. A), then only that chain
+        is parsed.
+
+    Returns:
+      A new `Protein` parsed from the pdb contents.
+    """
+    pdb_fh = io.StringIO(pdb_str)
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("none", pdb_fh)
+    models = list(structure.get_models())
+    if len(models) != 1:
+        raise ValueError(
+            f"Only single model PDBs are supported. Found {len(models)} models."
+        )
+    model = models[0]
+
+    atom_positions = []
+    aatype = []
+    atom_mask = []
+    residue_index = []
+    chain_ids = []
+    b_factors = []
+
+    for chain in model:
+        if chain_id is not None and chain.id != chain_id:
+            continue
+        for res in chain:
+            if res.id[2] != " ":
+                raise ValueError(
+                    f"PDB contains an insertion code at chain {chain.id} and residue "
+                    f"index {res.id[1]}. These are not supported."
+                )
+            res_shortname = constant.restype_3to1.get(res.resname, "X")
+            restype_idx = constant.restype_order.get(
+                res_shortname, constant.restype_num
+            )
+            pos = np.zeros((constant.atom_type_num, 3))
+            mask = np.zeros((constant.atom_type_num,))
+            res_b_factors = np.zeros((constant.atom_type_num,))
+            for atom in res:
+                if atom.name not in constant.atom_types:
+                    continue
+                pos[constant.atom_order[atom.name]] = atom.coord
+                mask[constant.atom_order[atom.name]] = 1.0
+                res_b_factors[
+                    constant.atom_order[atom.name]
+                ] = atom.bfactor
+            if np.sum(mask) < 0.5:
+                # If no known atom positions are reported for the residue then skip it.
+                continue
+            aatype.append(restype_idx)
+            atom_positions.append(pos)
+            atom_mask.append(mask)
+            residue_index.append(res.id[1])
+            chain_ids.append(chain.id)
+            b_factors.append(res_b_factors)
+
+    parents = None
+    parents_chain_index = None
+    if "PARENT" in pdb_str:
+        parents = []
+        parents_chain_index = []
+        chain_id = 0
+        for l in pdb_str.split("\n"):
+            if "PARENT" in l:
+                if not "N/A" in l:
+                    parent_names = l.split()[1:]
+                    parents.extend(parent_names)
+                    parents_chain_index.extend([
+                        chain_id for _ in parent_names
+                    ])
+                chain_id += 1
+
+    unique_chain_ids = np.unique(chain_ids)
+    chain_id_mapping = {cid: n for n, cid in enumerate(string.ascii_uppercase)}
+    chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
+
+    return Protein(
+        atom_positions=np.array(atom_positions),
+        atom_mask=np.array(atom_mask),
+        aatype=np.array(aatype),
+        residue_index=np.array(residue_index),
+        chain_index=chain_index,
+        b_factors=np.array(b_factors),
+        parents=parents,
+        parents_chain_index=parents_chain_index,
+    )
+

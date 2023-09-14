@@ -1,4 +1,4 @@
 import sys
 sys.path.append(r"../foldingdiff")
-import PDB_processing
+import data_pipeline
 import ESM1b_embedding

@@ -16,7 +16,6 @@ from typing import *
 
 from matplotlib import pyplot as plt
 import numpy as np
-import pandas as pd
 
 import torch
 from torch import nn
@@ -43,7 +42,8 @@ from foldingdiff.angles_and_coords import (
 from foldingdiff import custom_metrics as cm
 from foldingdiff import utils
 
-from foldingdiff.PDB_processing import get_torsion_seq, rigid_distance_pdb
+from foldingdiff.PDB_processing import rigid_distance_pdb
+from foldingdiff.data_pipeline import process_pdb
 
 TRIM_STRATEGIES = Literal["leftalign", "randomcrop", "discard"]
 
@@ -536,48 +536,18 @@ class CathSideChainAnglesDataset(Dataset):
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
-        self.structures = None
-        codebase_hash = utils.md5_all_py_files(
-            os.path.dirname(os.path.abspath(__file__))
-        )
-        # Default to false; assuming no cache, also doesn't match
-        codebase_matches_hash = False
-        self.cache_dir = cache_dir
-        '''
-        # Always compute for toy; do not save
-        if toy:
-            if isinstance(toy, bool):
-                toy = 150
-            fnames = fnames[:toy]
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/folddiff_data.pkl'
 
-            logging.info(f"Loading toy dataset of {toy} structures")
-            self.structures = self.__compute_featurization_sidechain(fnames)
-        elif use_cache and os.path.exists(self.cache_fname):
-        #    print("=====================self.cache_fname=========",self.cache_fname)
-            logging.info(f"Loading cached full dataset from {self.cache_fname}")
-            with open(self.cache_fname, "rb") as source:
-                loaded_hash, loaded_structures = pickle.load(source)
-                #codebase_matches_hash = loaded_hash == codebase_hash
-                codebase_matches_hash = True
-                if not codebase_matches_hash:
-                    logging.warning(
-                        "Mismatched hashes between codebase and cached values; updating cached values"
-                    )
-                else:
-                    self.structures = loaded_structures
-                    logging.info("Hash matches between codebase and cached values!")
-        # We have not yet populated self.structures
-        if self.structures is None:
-            self.__clean_mismatched_caches()
-            print('===========================lvying Warping Data_START======================')
-            self.structures = self.__compute_featurization_sidechain(fnames)
-            if use_cache and not codebase_matches_hash:
-                logging.info(f"Saving full dataset to cache at {self.cache_fname}")
-                with open(self.cache_fname, "wb") as sink:
-                    pickle.dump((codebase_hash, self.structures), sink)
-            print('===========================lvying Warpping Data_START Finish======================')
+        self.__clean_mismatched_caches()
+        print('=========================== Warping Data_START======================')
+        self.structures = self.__compute_featurization_sidechain(fnames)
+
+        # logging.info(f"Saving full dataset to cache at {full_data_name}")
+        with open(full_data_name, "wb") as file:
+            pickle.dump(self.structures, file)
+        print('=========================== Warpping Data_START Finish======================')
         
-        
+        '''
         self.__clean_mismatched_caches()
         torsion_distance = self.__compute_rigid_distance_pdb(fnames)
         cache_fname = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/esm3B_cache_canonical_structures_cath_5f78fbaa0daf91473835f7445535dcc2.pkl'
@@ -593,7 +563,7 @@ class CathSideChainAnglesDataset(Dataset):
             pickle.dump(loaded_structures, file)
 
             file.close()
-        '''
+        
         
         full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/full_data.pkl'
         with open(full_data_name, "rb") as file:
@@ -601,6 +571,7 @@ class CathSideChainAnglesDataset(Dataset):
             loaded_structures = pickle.load(file)
             
         self.structures = loaded_structures
+        '''
 
         # If specified, remove sequences shorter than min_length
         if self.min_length:
@@ -741,7 +712,7 @@ class CathSideChainAnglesDataset(Dataset):
 
         structures = []
         pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-        structures = list(pool.map(get_torsion_seq,fnames, chunksize=250))
+        structures = list(pool.map(process_pdb,fnames, chunksize=250))
         pool.close()
         pool.join()
         structures = add_esm1b_embedding(structures,32)

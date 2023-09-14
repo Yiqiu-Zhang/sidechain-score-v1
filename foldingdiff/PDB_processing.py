@@ -4,142 +4,8 @@ import math
 import numpy as np
 import pandas as pd
 import torch.nn.functional as F
+from write_preds_pdb import constant as rc
 
-
-
-restypes = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P',
-            'S', 'T', 'W', 'Y', 'V', 'X'] # with the UNK residue
-
-AA_TO_ID = {restype: i for i, restype in enumerate(restypes)}
-
-
-ANGLES = ["X1", "X2", "X3","X4"]
-chi_angles_atoms = {
-    "ALA": [],
-    # Chi5 in arginine is always 0 +- 5 degrees, so ignore it.
-    "ARG": [
-        ["N", "CA", "CB", "CG"],
-        ["CA", "CB", "CG", "CD"],
-        ["CB", "CG", "CD", "NE"],
-        ["CG", "CD", "NE", "CZ"],
-    ],
-    "ASN": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
-    "ASP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
-    "CYS": [["N", "CA", "CB", "SG"]],
-    "GLN": [
-        ["N", "CA", "CB", "CG"],
-        ["CA", "CB", "CG", "CD"],
-        ["CB", "CG", "CD", "OE1"],
-    ],
-    "GLU": [
-        ["N", "CA", "CB", "CG"],
-        ["CA", "CB", "CG", "CD"],
-        ["CB", "CG", "CD", "OE1"],
-    ],
-    "GLY": [],
-    "HIS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "ND1"]],
-    "ILE": [["N", "CA", "CB", "CG1"], ["CA", "CB", "CG1", "CD1"]],
-    "LEU": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "LYS": [
-        ["N", "CA", "CB", "CG"],
-        ["CA", "CB", "CG", "CD"],
-        ["CB", "CG", "CD", "CE"],
-        ["CG", "CD", "CE", "NZ"],
-    ],
-    "MET": [
-        ["N", "CA", "CB", "CG"],
-        ["CA", "CB", "CG", "SD"],
-        ["CB", "CG", "SD", "CE"],
-    ],
-    "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "PRO": [], #[] PRO chi angle was replaced to 0, 为了把PRO看作一个刚体 ["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]
-    "SER": [["N", "CA", "CB", "OG"]],
-    "THR": [["N", "CA", "CB", "OG1"]],
-    "TRP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "TYR": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "VAL": [["N", "CA", "CB", "CG1"]],
-    "UNK": [] # 添加 UNKNOWN residue
-}
-restype_1to3 = {
-    "A": "ALA",
-    "R": "ARG",
-    "N": "ASN",
-    "D": "ASP",
-    "C": "CYS",
-    "Q": "GLN",
-    "E": "GLU",
-    "G": "GLY",
-    "H": "HIS",
-    "I": "ILE",
-    "L": "LEU",
-    "K": "LYS",
-    "M": "MET",
-    "F": "PHE",
-    "P": "PRO",
-    "S": "SER",
-    "T": "THR",
-    "W": "TRP",
-    "Y": "TYR",
-    "V": "VAL",
-    "X": "UNK", # 添加 UNKNOWN residue
-}
-restype_3to1 = {v: k for k, v in restype_1to3.items()}
-bb_atoms = ['N', 'CA', 'C', 'O']
-
-restype_name_to_rigid_idx = {
-    "ALA": [2],
-    "ARG": [1,8,8,8,19], # [1,8,8,19,20] use this later
-    "ASN": [1,8,16],
-    "ASP": [1,8,15],
-    "CYS": [1,6],
-    "GLN": [1,8,8,16],
-    "GLU": [1,8,8,15],
-    "GLY": [1],
-    "HIS": [1,8,17],
-    "ILE": [1,9,10], # [1,7,9]
-    "LEU": [1,8,7],
-    "LYS": [1,8,8,8,18],
-    "MET": [1,8,8,11], # [1,8,10,11]
-    "PHE": [1,8,12],
-    "PRO": [3],
-    "SER": [1,4], 
-    "THR": [1,5],
-    "TRP": [1,8,14],
-    "TYR": [1,8,13],
-    "VAL": [1,7],
-    "UNK": [1], #给 UNKNOWN res 只添加主链 rigid 其他原子先不管
-}
-'''
-type 0: mask type
-rigid 1,2,3: GLY, ALA, PRO  bb rigid, special type
-rigid 4,5,6,16: polar neutral type
-rigid 7,8,9,10,11,12,13,14: Hydrophobic
-rigid 12,13,14,17: Ring
-rigid 15: Acid
-rigid 17,18,19: Alkaline
-'''
-rigid_type_property = [
-    [0,0,0,0,0,0], # Mask with no type
-    [1,0,0,0,0,0],
-    [1,0,0,0,0,0],
-    [1,0,0,0,0,0],# PRO
-    [0,1,0,0,0,0],
-    [0,1,0,0,0,0],
-    [0,1,0,0,0,0],
-    [0,0,1,0,0,0],
-    [0,0,1,0,0,0],
-    [0,0,1,0,0,0],
-    [0,0,1,0,0,0],
-    [0,0,1,0,0,0],
-    [0,0,1,1,0,0],
-    [0,0,1,1,0,0],
-    [0,0,1,1,0,0],
-    [0,0,0,0,1,0],
-    [0,1,0,0,0,0],
-    [0,0,0,1,0,1],
-    [0,0,0,0,0,1],
-    [0,0,0,0,0,1],
-]
 
 def acid_to_number(seq, mapping):
     num_list = []
@@ -168,7 +34,7 @@ def rigid_distance_pdb(pdb_path):
 
 
         res_name = res.resname
-        res_torsion_atom_list = chi_angles_atoms[res_name]
+        res_torsion_atom_list = rc.chi_angles_atoms[res_name]
 
         for i, torsion_atoms in enumerate(res_torsion_atom_list):
             # 这个还有点问题，因为在这个坐标应该是用上一个rigid的local frame来定义的，
@@ -183,6 +49,7 @@ def rigid_distance_pdb(pdb_path):
 
     return torsion_distance
 
+'''
 def get_torsion_seq(pdb_path):
     
     torsion_list = []
@@ -211,10 +78,10 @@ def get_torsion_seq(pdb_path):
         
 
         res_name = res.resname
-        seq.append(restype_3to1[res_name])
+        seq.append(rc.restype_3to1[res_name])
         res_torsion_atom_list = chi_angles_atoms[res_name]
-        res_rigid_group_list = restype_name_to_rigid_idx[res_name]
-        X.append([res[a].get_coord() for a in bb_atoms])
+        res_rigid_group_list = rc.restype_name_to_rigid_idx[res_name]
+        X.append([res[a].get_coord() for a in rc.bb_atoms])
 
         for i, rigid in enumerate(res_rigid_group_list):
             rigid_type[res_idx][i] = rigid
@@ -261,6 +128,7 @@ def get_torsion_seq(pdb_path):
                    'fname': pdb_path,
                    }
     return dict_struct
+'''
 
 #t = get_torsion_seq('./data/1CRN.pdb')
 #l = len(t1)

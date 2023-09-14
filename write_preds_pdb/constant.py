@@ -32,6 +32,7 @@ restype_1to3 = {
     'V': 'VAL',
     'X': 'UNK', #With UNK res as a restype
 }
+restype_3to1 = {v: k for k, v in restype_1to3.items()}
 
 # A compact atom encoding with 14 columns
 # pylint: disable=line-too-long
@@ -300,6 +301,72 @@ residues_atom_position = {
     ],
 }
 
+restype_name_to_rigid_idx = {
+    "ALA": [2],
+    "ARG": [1,8,8,19,20], # [1,8,8,8,19]
+    "ASN": [1,8,16],
+    "ASP": [1,8,15],
+    "CYS": [1,6],
+    "GLN": [1,8,8,16],
+    "GLU": [1,8,8,15],
+    "GLY": [1],
+    "HIS": [1,8,17],
+    "ILE": [1,7,9], # [1,9,10]
+    "LEU": [1,8,7],
+    "LYS": [1,8,8,8,18],
+    "MET": [1,8,10,11], # [1,8,8,11]
+    "PHE": [1,8,12],
+    "PRO": [3],
+    "SER": [1,4],
+    "THR": [1,5],
+    "TRP": [1,8,14],
+    "TYR": [1,8,13],
+    "VAL": [1,7],
+    "UNK": [1], #给 UNKNOWN res 只添加主链 rigid 其他原子先不管
+}
+'''
+type 0: mask type
+rigid 1,2,3: GLY, ALA, PRO  bb rigid, special type
+rigid 4,5,6,13, 16: polar neutral type
+rigid 7,8,9,10,11,12,14: Hydrophobic
+rigid 12,13,14,17: Ring
+rigid 15: Acid
+rigid 17,18,19: Alkaline
+'''
+
+'''
+Special 1,2,3
+Polar Neutral 4,5,6,13,16
+Hydrophobic 1,2,3,7,9,11,12,14
+Ring 12,13,14,17
+Alkaline 17,18,20
+Acid 15
+Chain 7,8,10,19
+'''
+rigid_type_property = [
+    [0,0,0,0,0,0], # Mask with no type
+    [1,0,1,0,0,0],# 1
+    [1,0,1,0,0,0],# 2
+    [1,0,1,0,0,0],# 3
+    [0,1,0,0,0,0],# 4
+    [0,1,0,0,0,0],# 5
+    [0,1,0,0,0,0],# 6
+    [0,0,1,0,0,0],# 7
+    [0,0,0,0,0,0],# 8
+    [0,0,1,0,0,0],# 9
+    [0,0,0,0,0,0],# 10
+    [0,0,1,0,0,0],# 11
+    [0,0,1,1,0,0],# 12
+    [0,1,0,1,0,0],# 13
+    [0,0,1,1,0,0],# 14
+    [0,0,0,0,0,1],# 15
+    [0,1,0,0,0,0],# 16
+    [0,0,0,1,1,0],# 17
+    [0,0,0,0,1,0],# 18
+    [0,0,0,0,0,0],# 19
+    [0,0,0,0,1,0],# 20
+]
+
 # Mask the useless chi angle for each residue. 1 means used, 0 means useless.
 chi_angles_mask = [
     [0.0, 0.0, 0.0, 0.0],  # ALA
@@ -450,6 +517,7 @@ atom_types = [
     "OXT",
 ]
 atom_order = {atom_type: i for i, atom_type in enumerate(atom_types)}
+atom_type_num = len(atom_types)  # := 37.
 
 
 # create an array with (restype, atomtype) --> rigid_group_idx

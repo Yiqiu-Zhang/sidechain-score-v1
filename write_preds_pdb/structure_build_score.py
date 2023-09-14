@@ -534,7 +534,7 @@ def rigids_to_torsion_angles(
     return torsion_angles[..., 3:], all_atom_positions
 
 
-def atom37_to_torsion_angles(
+def atom37_to_torsion_feature(
         aatype,
         all_atom_positions,
         all_atom_mask,
@@ -565,6 +565,7 @@ def atom37_to_torsion_angles(
             Torsion angles mask
     """
 
+    feat ={}
     aatype = torch.clamp(aatype, max=20)
     all_atom_positions = torch.tensor(all_atom_positions)
     all_atom_mask = torch.tensor(all_atom_mask)
@@ -614,9 +615,7 @@ def atom37_to_torsion_angles(
         all_atom_positions, atom_indices, -2, len(atom_indices.shape[:-2])
     )
 
-    chi_angles_mask = list(rc.chi_angles_mask)
-    chi_angles_mask.append([0.0, 0.0, 0.0, 0.0])
-    chi_angles_mask = all_atom_mask.new_tensor(chi_angles_mask)
+    chi_angles_mask = all_atom_mask.new_tensor(rc.chi_angles_mask)
 
     chis_mask = chi_angles_mask[aatype, :]
 
@@ -700,4 +699,11 @@ def atom37_to_torsion_angles(
 
     torsion_angles = torch.atan2(torsion_angles_sin_cos[..., 0], torsion_angles_sin_cos[..., 1])
     alt = torch.atan2(alt_torsion_angles_sin_cos[..., 0], alt_torsion_angles_sin_cos[..., 1])
-    return torsion_angles, alt
+
+    torsion_distance = chis_atom_pos[...,1,:] - chis_atom_pos[...,2,:]
+
+    feat['torsion_angles'] = torsion_angles
+    feat['torsion_angles_mask'] = torsion_angles_mask
+    feat['torsion_distance'] = torsion_distance
+
+    return feat
