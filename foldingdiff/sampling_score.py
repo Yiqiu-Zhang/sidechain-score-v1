@@ -67,13 +67,13 @@ def p_sample_loop_score(
         sigma = torch.unsqueeze(sigma, 0)
         # , current_r
         score= model(rigids,
-                        #current_local_r,
-                        seq,
-                        sigma,
-                        acid_embedding,
-                        rigid_type,
-                        rigid_property,
-                        pad_mask)
+                    #current_local_r,
+                    seq,
+                    sigma,
+                    acid_embedding,
+                    rigid_type,
+                    rigid_property,
+                    pad_mask)
         '''
         if sigma <0.0:
             current_local_r = current_r

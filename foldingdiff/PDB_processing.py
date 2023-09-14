@@ -52,7 +52,7 @@ chi_angles_atoms = {
         ["CB", "CG", "SD", "CE"],
     ],
     "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "PRO": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]], #[] PRO chi angle was replaced to 0, 为了把PRO看作一个刚体
+    "PRO": [], #[] PRO chi angle was replaced to 0, 为了把PRO看作一个刚体 ["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]
     "SER": [["N", "CA", "CB", "OG"]],
     "THR": [["N", "CA", "CB", "OG1"]],
     "TRP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
@@ -88,7 +88,7 @@ bb_atoms = ['N', 'CA', 'C', 'O']
 
 restype_name_to_rigid_idx = {
     "ALA": [2],
-    "ARG": [1,8,8,8,19],
+    "ARG": [1,8,8,8,19], # [1,8,8,19,20] use this later
     "ASN": [1,8,16],
     "ASP": [1,8,15],
     "CYS": [1,6],
@@ -96,16 +96,16 @@ restype_name_to_rigid_idx = {
     "GLU": [1,8,8,15],
     "GLY": [1],
     "HIS": [1,8,17],
-    "ILE": [1,9,10],
+    "ILE": [1,9,10], # [1,7,9]
     "LEU": [1,8,7],
     "LYS": [1,8,8,8,18],
-    "MET": [1,8,8,11],
+    "MET": [1,8,8,11], # [1,8,10,11]
     "PHE": [1,8,12],
-    "PRO": [3,3,3],
-    "SER": [1,4],
+    "PRO": [3],
+    "SER": [1,4], 
     "THR": [1,5],
-    "TRP": [1,9,14],
-    "TYR": [1,9,13],
+    "TRP": [1,8,14],
+    "TYR": [1,8,13],
     "VAL": [1,7],
     "UNK": [1], #给 UNKNOWN res 只添加主链 rigid 其他原子先不管
 }

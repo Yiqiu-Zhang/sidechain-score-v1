@@ -241,7 +241,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                known_noise: torch.Tensor, # [B,N,4]
                sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
-               torsion_distance,
+               #torsion_distance,
                mask: torch.Tensor, # [B,N,4]
                eps: float = 1e-4,
                clamp_distance: float = 0.2,
@@ -256,7 +256,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     sigma_idx = torch.round(torch.clip(sigma, 0, SIGMA_N)).to(int)
 
     # [b, L, 21]
-    residue_type_one_hot = F.one_hot(seq, 20 + 1, )
+    residue_type_one_hot = F.one_hot(seq, 20 + 1)
 
     # [B, L, 4]
     chi_pi_periodic = torch.einsum(
@@ -274,7 +274,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
 
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
-                     dim=(-2, -3))
+                     dim=(-1, -2, -3))
     '''
     # [B, N_res, 8, 3]
     trans = current_local_r.trans[...,4:,:]

@@ -509,7 +509,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         bb_to_gb = geometry.get_gb_trans(batch["coords"])
 
         # [*, N_rigid] Rigid
-        rigids, current_local_r, _ = structure_build.torsion_to_frame(batch["seq"],
+        rigids, _, _ = structure_build.torsion_to_frame(batch["seq"],
                                                      bb_to_gb,
                                                      angles_sin_cos,
                                                      default_r)
@@ -527,26 +527,17 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         loss_fn = self.angular_loss_fn_dict['score_loss']
 
-        loss_terms = loss_fn(
+        loss = loss_fn(
             predicted_score,
             #current_local_r,
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number
-            batch['torsion_distance'],
+            #batch['torsion_distance'],
             batch['chi_mask'],  # [b,L,4]  Padded in chi_mask so no need to use padding mask
         )
 
-        if write_preds is not None:
-            with open(write_preds, "w") as f:
-                d_to_write = {
-                    "predicted_score": predicted_score.cpu().numpy().tolist(),
-                    "chi_mask": batch["chi_mask"].cpu().numpy().tolist(),
-                    "losses": [l.item() for l in loss_terms],
-                }
-                json.dump(d_to_write, f)
-
-        return loss_terms
+        return loss
 
     def training_step(self, batch, batch_idx):
         """
@@ -554,36 +545,12 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         """
        # torch.autograd.set_detect_anomaly(True)
 
-        #print("=================================",batch["chi_mask"].shape)
-        loss_terms = self._get_loss_terms_grad(batch)
+        avg_loss = self._get_loss_terms_grad(batch)
         
-        avg_loss = torch.mean(loss_terms)
-        #print("==============avg_loss==============",avg_loss)
-        # L1 loss implementation
-        if self.l1_lambda > 0:
-            l1_penalty = sum(torch.linalg.norm(p, 1) for p in self.parameters())
-            avg_loss += self.l1_lambda * l1_penalty
-
-        pseudo_ft_names = (
-            (self.ft_names + ["pairwise_dist_loss"])
-            if self.use_pairwise_dist_loss
-            else self.ft_names
-        )
-        assert len(loss_terms) == len(pseudo_ft_names)
-        loss_dict = {
-            f"train_loss_{val_name}": val
-            for val_name, val in zip(pseudo_ft_names, loss_terms)
-        }
+        loss_dict = {}
         loss_dict["train_loss"] = avg_loss
         self.log_dict(loss_dict)  # Don't seem to need rank zero or sync dist
         
-        
-      #  for name, param in self.named_parameters():
-      #      if param.grad is not None:
-      #          print(f"Parameter '{name}' has gradient")
-      #      else:
-      #          print(f"Parameter '{name}' does not have gradient")
-
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
@@ -605,7 +572,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         Validation step
         """
         with torch.no_grad():
-            loss_terms = self._get_loss_terms_grad(
+            avg_loss = self._get_loss_terms_grad(
                 batch,
                 write_preds=os.path.join(
                     self.write_preds_to_dir, f"{self.write_preds_counter}_preds.json"
@@ -614,19 +581,9 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
                 else None,
             )
             self.write_preds_counter += 1
-        avg_loss = torch.mean(loss_terms)
 
         # Log each of the loss terms
-        pseudo_ft_names = (
-            (self.ft_names + ["pairwise_dist_loss"])
-            if self.use_pairwise_dist_loss
-            else self.ft_names
-        )
-        assert len(loss_terms) == len(pseudo_ft_names)
-        loss_dict = {
-            f"val_loss_{val_name}": self.all_gather(val)
-            for val_name, val in zip(pseudo_ft_names, loss_terms)
-        }
+        loss_dict = {}
         loss_dict["val_loss"] = avg_loss
         # with rank zero it seems that we don't need to use sync_dist
         self.log_dict(loss_dict, rank_zero_only=True)

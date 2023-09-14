@@ -204,8 +204,8 @@ class InputEmbedder(nn.Module):
         rigid_property: torch.Tensor, #[batch,128,5,6]
 
         distance: torch.Tensor, # [batch, N_rigid, N_rigid] distance 也要做分块处理比较好 （做了_rbf）
-        altered_direction: torch.Tensor, # [batch, N_rigid, N_rigid, 3]
-        orientation: torch.Tensor,# [batch, N_rigid, N_rigid] Rigid 要把这个东西变成 quaternion
+        #altered_direction: torch.Tensor, # [batch, N_rigid, N_rigid, 3]
+        #orientation: torch.Tensor,# [batch, N_rigid, N_rigid] Rigid 要把这个东西变成 quaternion
         rigid_mask: torch.Tensor, # [batch, N_rigid]  mask of the missing rigid body
         pair_mask: torch.Tensor, # [batch, N_rigid, N_rigid]
         E_idx: torch.Tensor,
@@ -268,10 +268,10 @@ class InputEmbedder(nn.Module):
         distance_e = gather_edges(distance[...,None], E_idx).squeeze(-1)
         distance_rbf = rbf(distance_e)
 
-        quaternions = matrix_to_quaternion(orientation)
-        quaternions = gather_edges(quaternions, E_idx)
+        #quaternions = matrix_to_quaternion(orientation)
+        #quaternions = gather_edges(quaternions, E_idx)
 
-        altered_direction = gather_edges(altered_direction, E_idx)
+        #altered_direction = gather_edges(altered_direction, E_idx)
         
         nf_pair_feature = torch.cat([torch.tile(node_feature[:, :, None, :], (1, 1, n_rigid, 1)),
                                      torch.tile(node_feature[:, None, :, :], (1, n_rigid, 1, 1))], axis = -1)
@@ -615,6 +615,7 @@ class EdgeTransition(nn.Module):
         edge_emb = self.layer_norm(edge_emb)
 
         return edge_emb
+
 
 class AngleScore(nn.Module):
 
@@ -1105,8 +1106,8 @@ class RigidDiffusion(nn.Module):
                                                 rigid_type,
                                                 rigid_property,
                                                 distance,
-                                                altered_direction,
-                                                orientation,
+                                                #altered_direction,
+                                                #orientation,
                                                 rigid_mask,
                                                 pair_mask,
                                                 E_idx,
@@ -1127,6 +1128,6 @@ class RigidDiffusion(nn.Module):
 
         #transed_local_r = self.trans_update(node_emb, local_r)
 
-        return score#, transed_local_r
+        return score #, transed_local_r
 
 
