@@ -321,7 +321,7 @@ class CathCanonicalAnglesDataset(Dataset):
             f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
         )
         # Generate dihedral angles
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        pool = multiprocessing.Pool(processes=10)
         struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
         coord_arrays = list(pool.map(coords_pfunc, fnames, chunksize=250))
         pool.close()
@@ -536,9 +536,8 @@ class CathSideChainAnglesDataset(Dataset):
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
-        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/folddiff_data.pkl'
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/foldingdiff_data.pkl'
 
-        self.__clean_mismatched_caches()
         print('=========================== Warping Data_START======================')
         self.structures = self.__compute_featurization_sidechain(fnames)
 
@@ -701,7 +700,7 @@ class CathSideChainAnglesDataset(Dataset):
     def __compute_rigid_distance_pdb(self, fnames: Sequence[str]):
 
         rigid_distance = []
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        pool = multiprocessing.Pool(processes=10)
         rigid_distance = list(pool.map(rigid_distance_pdb,fnames, chunksize=250))
         pool.close()
         pool.join()
@@ -711,7 +710,7 @@ class CathSideChainAnglesDataset(Dataset):
     def __compute_featurization_sidechain(self, fnames: Sequence[str]):
 
         structures = []
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        pool = multiprocessing.Pool(processes=10)
         structures = list(pool.map(process_pdb,fnames, chunksize=250))
         pool.close()
         pool.join()
@@ -735,7 +734,7 @@ class CathSideChainAnglesDataset(Dataset):
             f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
         )
         # Generate dihedral angles
-        pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+        pool = multiprocessing.Pool(processes=10)
         struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
         coord_arrays = list(pool.map(coords_pfunc, fnames, chunksize=250))
         pool.close()

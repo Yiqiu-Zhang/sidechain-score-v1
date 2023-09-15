@@ -44,11 +44,14 @@ def make_protein_features(
 
     pdb_feats["seq"] = aatype
     pdb_feats["seq_temp"] = np.array(sequence)
+    pdb_feats['residue_index'] = protein_object.residue_index
 
     all_atom_positions = protein_object.atom_positions
     all_atom_mask = protein_object.atom_mask
 
     pdb_feats["all_atom_positions"] = all_atom_positions.astype(np.float32)
+    if len(all_atom_positions.shape) != 3:
+         raise ValueError(f'{all_atom_positions.shape}'f' positions {pdb_feats["all_atom_positions"]}')
     pdb_feats["coords"] = pdb_feats['all_atom_positions'][:,[0,1,2,4],:]
     pdb_feats["all_atom_mask"] = all_atom_mask.astype(np.float32)
 
@@ -103,7 +106,6 @@ def process_pdb(
     )
 
     return {**pdb_feats}
-a = process_pdb('../write_preds_pdb/1a02F00')
 
 '''
 from structure_build_score import torsion_to_position, get_default_r, write_pdb_from_position
