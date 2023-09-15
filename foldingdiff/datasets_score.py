@@ -701,7 +701,7 @@ class CathSideChainAnglesDataset(Dataset):
 
         rigid_distance = []
         pool = multiprocessing.Pool(processes=10)
-        rigid_distance = list(pool.map(rigid_distance_pdb,fnames, chunksize=250))
+        rigid_distance = list(pool.map(rigid_distance_pdb,fnames, chunksize=100))
         pool.close()
         pool.join()
      
@@ -710,10 +710,17 @@ class CathSideChainAnglesDataset(Dataset):
     def __compute_featurization_sidechain(self, fnames: Sequence[str]):
 
         structures = []
+        
+        for fname in fnames:
+            structures.append(process_pdb(fname))
+            
+        '''
         pool = multiprocessing.Pool(processes=10)
-        structures = list(pool.map(process_pdb,fnames, chunksize=250))
+        structures = list(pool.map(process_pdb,fnames, chunksize=100))
         pool.close()
         pool.join()
+        '''
+        print('finish building structures start to add esm')
         structures = add_esm1b_embedding(structures,32)
         
         return structures

@@ -133,7 +133,7 @@ def to_pdb(prot: Protein) -> str:
     pdb_lines.append("")
     return "\n".join(pdb_lines)
 
-def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
+def from_pdb_string(pdb_path: str, chain_id: Optional[str] = None) -> Protein:
     """Takes a PDB string and constructs a Protein object.
 
     WARNING: All non-standard residue types will be converted into UNK. All
@@ -148,9 +148,8 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
     Returns:
       A new `Protein` parsed from the pdb contents.
     """
-    pdb_fh = io.StringIO(pdb_str)
     parser = PDBParser(QUIET=True)
-    structure = parser.get_structure("none", pdb_fh)
+    structure = parser.get_structure("name", pdb_path)
     model = structure[0]
     chain = model.child_list[0]
 

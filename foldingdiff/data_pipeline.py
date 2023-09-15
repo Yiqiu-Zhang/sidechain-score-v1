@@ -96,10 +96,7 @@ def process_pdb(
         Assembles features for a protein in a PDB file.
     """
 
-    with open(pdb_path, 'r') as f:
-        pdb_str = f.read()
-
-    protein_object = protein.from_pdb_string(pdb_str, chain_id)
+    protein_object = protein.from_pdb_string(pdb_path, chain_id)
     pdb_feats = make_pdb_features(
         protein_object,
         is_distillation=is_distillation
