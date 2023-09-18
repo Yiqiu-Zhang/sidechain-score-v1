@@ -528,7 +528,7 @@ class CathSideChainAnglesDataset(Dataset):
         self.trim_strategy = trim_strategy
         self.pad = pad
         self.min_length = min_length
-
+        
         # gather files
         self.pdbs_src = pdbs
         fnames = self.__get_pdb_fnames(pdbs)
@@ -536,8 +536,8 @@ class CathSideChainAnglesDataset(Dataset):
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
-        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/foldingdiff_data.pkl'
-
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/foldingdiff_data2.pkl'
+        '''
         print('=========================== Warping Data_START======================')
         self.structures = self.__compute_featurization_sidechain(fnames)
 
@@ -545,33 +545,14 @@ class CathSideChainAnglesDataset(Dataset):
         with open(full_data_name, "wb") as file:
             pickle.dump(self.structures, file)
         print('=========================== Warpping Data_START Finish======================')
-        
         '''
-        self.__clean_mismatched_caches()
-        torsion_distance = self.__compute_rigid_distance_pdb(fnames)
-        cache_fname = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/esm3B_cache_canonical_structures_cath_5f78fbaa0daf91473835f7445535dcc2.pkl'
-        with open(cache_fname, "rb") as source:
-                logging.info(f"Loading cached full dataset from {cache_fname}")
-                _, loaded_structures = pickle.load(source)
-
-        for i, structure in enumerate(loaded_structures):
-            structure.update({'torsion_distance': torsion_distance[i]})
-
-        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/full_data.pkl'
-        with open(full_data_name, 'wb') as file:
-            pickle.dump(loaded_structures, file)
-
-            file.close()
         
         
-        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/full_data.pkl'
         with open(full_data_name, "rb") as file:
             logging.info(f"Loading cached full dataset from {full_data_name}")
-            loaded_structures = pickle.load(file)
-            
-        self.structures = loaded_structures
-        '''
-
+            self.structures = pickle.load(file)
+        
+        
         # If specified, remove sequences shorter than min_length
         if self.min_length:
             orig_len = len(self.structures)
@@ -800,40 +781,9 @@ class CathSideChainAnglesDataset(Dataset):
         chi_mask = self.structures[index]["chi_mask"]
         rigid_type_onehot = self.structures[index]["rigid_type_onehot"]
         rigid_property = self.structures[index]["rigid_property"]
-        temp_name = self.structures[index]["fname"]
-        torsion_distance = self.structures[index]["torsion_distance"]
-       # print("&&&&&&&&&&&&&&&&&&&&&&&&angles&&&&&&&&&&&&&&&&&&",angles.shape)
-       # print("&&&&&&&&&&&&&&&&&&&&&&&&coords&&&&&&&&&&&&&&&&&&",coords.shape)
-       # print("&&&&&&&&&&&&&&&&&&&&&&&&seq&&&&&&&&&&&&&&&&&&",seq.shape)
-       # print("&&&&&&&&&&&&&&&&&&&&&&&&acid_embedding&&&&&&&&&&&&&&&&&&",acid_embedding.shape)
-      #  print("===================angles.shape[0]=======================",angles.shape[0])
-      #  print("=================== coords.shape[0]==============",coords.shape[0])
+
         assert angles.shape[0] == coords.shape[0]
         
-        # If given, offset the angles with mean
-        if self.means is not None and not ignore_zero_center:
-            assert (
-                    self.means.shape[0] == angles.shape[1]
-            ), f"Mismatched shapes: {self.means.shape} != {angles.shape}"
-            angles = angles - self.means
-
-            # The distance features all contain a single ":"
-            colon_count = np.array([c.count(":") for c in angles.columns])
-            # WARNING this uses a very hacky way to find the angles
-            angular_idx = np.where(colon_count != 1)[0]
-            angles.iloc[:, angular_idx] = utils.modulo_with_wrapped_range(
-                angles.iloc[:, angular_idx], -np.pi, np.pi
-            )
-
-        # Subset angles to ones we are actaully using as features
-        angles = angles.loc[
-                 :, CathSideChainAnglesDataset.feature_names["angles"]
-                 ].values
-        assert angles is not None
-        assert angles.shape[1] == len(
-            CathSideChainAnglesDataset.feature_is_angular["angles"]
-        ), f"Mismatched shapes for angles: {angles.shape[1]} != {len(CathSideChainAnglesDataset.feature_is_angular['angles'])}"
-
         # Replace nan values with zero
         np.nan_to_num(angles, copy=False, nan=0.)
 
@@ -874,12 +824,6 @@ class CathSideChainAnglesDataset(Dataset):
                 mode="constant",
                 constant_values=0,
             )
-            torsion_distance = np.pad(
-                torsion_distance,
-                ((0, self.pad - torsion_distance.shape[0]), (0, 0), (0, 0)),
-                mode="constant",
-                constant_values=0,
-            )
             seq = np.pad(
                 seq,
                 ((0, self.pad - seq.shape[0])),
@@ -905,31 +849,21 @@ class CathSideChainAnglesDataset(Dataset):
                 coords = coords[: self.pad]
                 acid_embedding = acid_embedding[: self.pad]
                 chi_mask = chi_mask[: self.pad]
-                torsion_distance = torsion_distance[: self.pad]
                 seq = seq[: self.pad]
                 rigid_type_onehot = rigid_type_onehot[: self.pad]
                 rigid_property = rigid_property[: self.pad]
                 
-                #print("*********************angles*******************",angles.shape)
-                #print("*********************coords*******************",coords.shape)
-                #print("*********************acid_embedding*******************",acid_embedding.shape)
-                #print("*********************seq*******************",seq.shape)
-                #print("*********************chi_mask *******************",chi_mask.shape)
-                #print("*********************rigid_type_onehot*******************",rigid_type_onehot.shape)
-                #print("*********************rigid_property*******************",rigid_property.shape)
             elif self.trim_strategy == "randomcrop":
                 # Randomly crop the sequence to
                 #print(self.pad)
                 start_idx = self.rng.integers(0, angles.shape[0] - self.pad)
                 #print(start_idx)
-                #print(angles.shape[0] - self.pad)
                 end_idx = start_idx + self.pad
                 assert end_idx < angles.shape[0]
                 angles = angles[start_idx:end_idx]
                 coords = coords[start_idx:end_idx]
                 acid_embedding = acid_embedding[start_idx:end_idx]
                 chi_mask = chi_mask[start_idx:end_idx]
-                torsion_distance = torsion_distance[start_idx:end_idx]
                 seq = seq[start_idx:end_idx]
                 rigid_type_onehot = rigid_type_onehot[start_idx:end_idx]
                 rigid_property = rigid_property[start_idx:end_idx]
@@ -938,10 +872,6 @@ class CathSideChainAnglesDataset(Dataset):
                 raise ValueError(f"Unknown trim strategy: {self.trim_strategy}")
 
         # Create position IDs
-        #print("=======&&&&&&&&&&&&&&&&&&&&&&&&angles&&&&&&&&&&&&&&&&&&",angles.shape)
-       # print("=======&&&&&&&&&&&&&&&&&&&&&&&&coords&&&&&&&&&&&&&&&&&&",coords.shape)
-       # print("=======&&&&&&&&&&&&&&&&&&&&&&&&seq&&&&&&&&&&&&&&&&&&",seq.shape)
-       # print("=======&&&&&&&&&&&&&&&&&&&&&&&&acid_embedding&&&&&&&&&&&&&&&&&&",acid_embedding.shape)
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
         angular_idx = np.where(CathSideChainAnglesDataset.feature_is_angular["angles"])[
@@ -954,16 +884,31 @@ class CathSideChainAnglesDataset(Dataset):
             angles[:, angular_idx], "<=", np.pi
         ), f"Illegal value: {np.max(angles[:, angular_idx])}"
         
-        angles = torch.from_numpy(angles)
         coords = torch.from_numpy(coords)
         acid_embedding = torch.from_numpy(acid_embedding)
-        chi_mask = torch.from_numpy(chi_mask)
-        torsion_distance = torch.from_numpy(torsion_distance)
         rigid_type_onehot = torch.from_numpy(rigid_type_onehot)
         rigid_property = torch.from_numpy(rigid_property)
+        seq = torch.from_numpy(seq)
+        try:
+            chi_mask = torch.from_numpy(chi_mask)
+            angles = torch.from_numpy(angles)
+        except:
+            pass
       #  print("===============================", type(seq))
        # seq = torch.from_numpy(seq)
        # print("===========111====================", seq.shape)
+        '''
+        print(f'coords{type(coords)}')
+        print(f'acid_embedding{type(acid_embedding)}')
+        print(f'rigid_type_onehot{type(rigid_type_onehot)}')
+        print(f'rigid_property{type(rigid_property)}')
+        print(f'attn_mask{type(attn_mask)}')
+        print(f'position_ids{type(position_ids)}')
+        print(f'acid_embedding{type(acid_embedding)}')
+        print(f'attn_mask{type(attn_mask)}')
+        print(f'position_ids{type(position_ids)}')
+        '''
+
         retval = {
             "angles": angles,
             "attn_mask": attn_mask, # attn_mask is useless since we have chi_mask which also include padding term
@@ -973,7 +918,6 @@ class CathSideChainAnglesDataset(Dataset):
             "seq": seq,
             "acid_embedding": acid_embedding,
             "chi_mask": chi_mask, # chi_mask is enough to use for all the masked condition
-            'torsion_distance': torsion_distance,
             'rigid_type_onehot': rigid_type_onehot, #(L,5,20)
             'rigid_property': rigid_property, # (L,5,6)
         }
@@ -1315,100 +1259,6 @@ class NoisedAnglesDataset(Dataset):
         )
 
         return noise
-
-    '''
-    def __getitem__(
-        self,
-        index: int,
-        use_t_val: Optional[int] = None,
-        ignore_zero_center: bool = False,
-    ) -> Dict[str, torch.Tensor]:
-        """
-        Gets the i-th item in the dataset and adds noise
-        use_t_val is useful for manually querying specific timepoints
-        """
-        assert 0 <= index < len(self), f"Index {index} out of bounds for {len(self)}"
-        # Handle cases where we exhaustively loop over t
-        if self.exhaustive_timesteps:
-            item_index = index // self.timesteps
-            assert item_index < len(self.dset)
-            time_index = index % self.timesteps
-            logging.debug(
-                f"Exhaustive {index} -> item {item_index} at time {time_index}"
-            )
-            assert (
-                item_index * self.timesteps + time_index == index
-            ), f"Unexpected indices for {index} -- {item_index} {time_index}"
-            item = self.dset.__getitem__(
-                item_index, ignore_zero_center=ignore_zero_center
-            )
-        else:
-            item = self.dset.__getitem__(index, ignore_zero_center=ignore_zero_center)
-
-        # If wrapped dset returns a dictionary then we extract the item to noise
-        if self.dset_key is not None:
-            assert isinstance(item, dict)
-            vals = item[self.dset_key].clone()
-           # print("============self.dset_key is not None==================",vals)
-        else:
-            vals = item.clone()
-          #  print("===========else===================",vals)
-        assert isinstance(
-            vals, torch.Tensor
-        ), f"Using dset_key {self.dset_key} - expected tensor but got {type(vals)}"
-
-        # Sample a random timepoint and add corresponding noise
-        if use_t_val is not None:
-            assert (
-                not self.exhaustive_timesteps
-            ), "Cannot use specific t in exhaustive mode"
-            t_val = np.clip(np.array([use_t_val]), 0, self.timesteps - 1)
-            t = torch.from_numpy(t_val).long()
-        elif self.exhaustive_timesteps:
-            t = torch.tensor([time_index]).long()  # list to get correct shape
-        else:
-            t = torch.randint(0, self.timesteps, (1,)).long()
-
-        # Get the values for alpha and beta
-        sqrt_alphas_cumprod_t = self.alpha_beta_terms["sqrt_alphas_cumprod"][t.item()]
-        sqrt_one_minus_alphas_cumprod_t = self.alpha_beta_terms[
-            "sqrt_one_minus_alphas_cumprod"
-        ][t.item()]
-        # Noise is sampled within range of [-pi, pi], and optionally
-        # shifted to [0, 2pi] by adding pi
-        noise = self.sample_noise(vals)  # Vals passed in only for shape
-
-        # Add noise and ensure noised vals are still in range
-        noised_vals = (
-            sqrt_alphas_cumprod_t * vals + sqrt_one_minus_alphas_cumprod_t * noise
-        )
-        assert noised_vals.shape == vals.shape, f"Unexpected shape {noised_vals.shape}"
-        # The underlying vals are already shifted, and noise is already shifted
-        # All we need to do is ensure we stay on the corresponding manifold
-        angular_idx = np.where(self.dset.feature_is_angular[self.dset_key])[0]
-        # Wrap around the correct range
-        noised_vals[:, angular_idx] = utils.modulo_with_wrapped_range(
-            noised_vals[:, angular_idx], -np.pi, np.pi
-        )
-        
-       # coords = self.dset[index]["coords"]
-        #seq = self.dset[index]["seq"]
-        #coords = torch.from_numpy(coords).float()
-        
-        retval = {
-            "corrupted": noised_vals,
-            "t": t,
-            "known_noise": noise,
-            "sqrt_alphas_cumprod_t": sqrt_alphas_cumprod_t,
-            "sqrt_one_minus_alphas_cumprod_t": sqrt_one_minus_alphas_cumprod_t,    
-        } #// double check
-        # Update dictionary if wrapped dset returns dicts, else just return
-        if isinstance(item, dict):
-            assert item.keys().isdisjoint(retval.keys())
-            item.update(retval)
-            return item
-        return retval
-    '''
 
     def __getitem__(
             self,

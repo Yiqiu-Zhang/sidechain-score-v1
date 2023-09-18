@@ -14,7 +14,7 @@ def make_rigid_feature(sequence):
     L = len(res_name)
     rigid_type = np.zeros((L,5))
     rigid_type_mask = np.zeros((L,5))
-    rigid_property = np.zeros((L,5,6))
+    rigid_property = np.zeros((L,5,7))
 
     for res_idx, name in enumerate(res_name):
         res_rigid_group_list = constant.restype_name_to_rigid_idx[name]
@@ -101,6 +101,7 @@ def process_pdb(
         protein_object,
         is_distillation=is_distillation
     )
+    pdb_feats['fname'] = pdb_path
 
     return {**pdb_feats}
 

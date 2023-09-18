@@ -216,8 +216,6 @@ class InputEmbedder(nn.Module):
 
         ):
         
-        assert rigid_property.shape[-1] == 6
-
         batch_size, seq_len, _ = seq_esm.shape
         n_rigid = rigid_mask.shape[1]
 
@@ -1001,13 +999,13 @@ class RigidDiffusion(nn.Module):
                  num_blocks: int = 3, # StructureUpdateModule的循环次数
 
                  # InputEmbedder config
-                 nf_dim: int = 6 + 20 + 320,
+                 nf_dim: int = 7 + 21 + 320,
                  c_n: int = 384, # Node channel dimension after InputEmbedding
                  relpos_k: int = 16, # relative position neighbour range
                  edge_type: int = 10,
 
                  # PairEmbedder parameter
-                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
+                 pair_dim: int = 16 + 348 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
                  c_z: int = 64, # Pair channel dimension after InputEmbedding
                  c_hidden_tri_att: int = 16, # x2 cause we x2 the input dimension
                  c_hidden_tri_mul: int = 32, # Keep ori
