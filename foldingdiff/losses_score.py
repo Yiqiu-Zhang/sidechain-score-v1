@@ -237,15 +237,15 @@ def square_chi_loss_with_periodic(
     return sq_chi_loss + angle_norm_weight * angle_norm_loss
 
 def score_loss(predicted_score: torch.Tensor, # [B,N,4]
-               #current_local_r: geometry.Rigid,
+               sum_local_t: torch.Tensor, # [B,N,3]
                known_noise: torch.Tensor, # [B,N,4]
                sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
-               #torsion_distance,
+               known_distance,
                mask: torch.Tensor, # [B,N,4]
                eps: float = 1e-4,
-               clamp_distance: float = 0.2,
-               loss_unit_distance: float = 0.2,
+               clamp_distance: float = 2,
+               length_scale: float = 2,
                ):
 
     sigma = sigma.unsqueeze(1)
@@ -275,17 +275,16 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-1, -2, -3))
-    '''
-    # [B, N_res, 8, 3]
-    trans = current_local_r.trans[...,4:,:]
 
-    d_error = torch.sqrt((torch.sum(torsion_distance ** 2, dim=-1)
-                          - torch.sum(trans ** 2, dim=-1)) ** 2 + eps)
-    d_error = torch.clamp(d_error, min=0, max=clamp_distance)* torch.exp(-sigma_idx/100)[...,None]
+    # [B, N_res, 8, 3]
+    d_error = torch.sqrt(torch.sum((known_distance - sum_local_t) ** 2, dim=-1) + eps)
+    d_error = torch.clamp(d_error, min=0, max=clamp_distance)
+
+    norm_d_error  = d_error/ length_scale
     # [B, N_res, 4]
-    trans_loss = mask_mean(mask, d_error, dim=(-2, -3)) 
-    '''
-    return loss# + 0.1*trans_loss
+    trans_loss = mask_mean(mask, norm_d_error, dim=(-1,-2, -3))
+
+    return loss + 0.5*trans_loss
 #=======================================new loss=========================================
 
 def main():

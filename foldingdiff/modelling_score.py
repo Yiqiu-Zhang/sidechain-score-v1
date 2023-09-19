@@ -413,7 +413,7 @@ class AngleDiffusionBase(nn.Module):
         #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
 
         #, trans
-        score = self.encoder(rigids, 
+        score, sum_local_t = self.encoder(rigids,
                             #local_r,
                             seq_idx,
                             timestep,
@@ -423,7 +423,7 @@ class AngleDiffusionBase(nn.Module):
                             pad_mask,
         )
 
-        return score#, trans
+        return score, sum_local_t
 
 class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
     """
@@ -496,44 +496,43 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
   
     def _get_loss_terms_grad(self,
                              batch: torch.Tensor,
-                             write_preds: Optional[str] = None
                              ) -> torch.Tensor:
         """
            Returns the loss terms for the model. Length of the returned list
            is equivalent to the number of features we are fitting to.
         """
 
-        angles_sin_cos = torch.stack([torch.sin(batch['corrupted']), torch.cos(batch['corrupted'])], dim=-1)
-        default_r = structure_build_score.get_default_r(batch["seq"], batch['corrupted'])
         # [*, N_res] Rigid
-        bb_to_gb = geometry.get_gb_trans(batch["coords"])
 
         # [*, N_rigid] Rigid
-        rigids, _, _ = structure_build.torsion_to_frame(batch["seq"],
-                                                     bb_to_gb,
-                                                     angles_sin_cos,
-                                                     default_r)
+        rigids, _, _ = structure_build.torsion_to_frame(batch['corrupted'],
+                                                        batch["seq"],
+                                                        batch["coords"])
+
+        ture_rigid,_,_ = structure_build.torsion_to_frame(batch['angles'],
+                                                          batch["seq"],
+                                                          batch["coords"])
+        known_distance = invert_rot_mul_vec(rigids, ture_rigid.trans) # Then translated to noise rigid frame
         # , current_local_r
-        predicted_score = self.forward(rigids,
-                                    #current_local_r,
-                                    batch["seq"],  # [batch,128,4]
-                                    #diffusion_mask,  # [batch,128,1]
-                                    batch["t"],
-                                    batch["acid_embedding"],  # [batch,128,1024]
-                                    batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
-                                    batch['rigid_property'],  # [batch,128,5,6]
-                                    batch["attn_mask"],
-                                )
+        predicted_score, sum_local_t = self.forward(rigids,
+                                                    batch["seq"],  # [batch,128,4]
+                                                    #diffusion_mask,  # [batch,128,1]
+                                                    batch["t"],
+                                                    batch["acid_embedding"],  # [batch,128,1024]
+                                                    batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
+                                                    batch['rigid_property'],  # [batch,128,5,6]
+                                                    batch["attn_mask"],
+                                                )
 
         loss_fn = self.angular_loss_fn_dict['score_loss']
 
         loss = loss_fn(
             predicted_score,
-            #current_local_r,
+            sum_local_t,
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number
-            #batch['torsion_distance'],
+            known_distance,
             batch['chi_mask'],  # [b,L,4]  Padded in chi_mask so no need to use padding mask
         )
 

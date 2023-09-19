@@ -248,7 +248,7 @@ def torsion_to_position(aatype_idx: torch.Tensor,  # [*, N]
     return final_pos
 
 
-def get_default_r(restype_idx, angles):
+def get_default_r(restype_idx):
     default_frame = torch.tensor(restype_rigid_group_default_frame).to('cuda')
 
     # [*, N, 8, 4, 4]
@@ -259,10 +259,10 @@ def get_default_r(restype_idx, angles):
     return default_r
 
 
-def torsion_to_frame(aatype_idx: torch.Tensor,  # [*, N]
-                     bb_to_gb: geometry.Rigid,  # [*, N_rigid]
-                     angles_sin_cos: torch.Tensor,  # [*, N, 4, 2] (X1, X2, X3, X4)
-                     last_step_r: geometry.Rigid
+def torsion_to_frame(angles,
+                     aatype_idx: torch.Tensor,  # [*, N]
+                     bb_coord: geometry.Rigid,  # [*, N_rigid]
+                     last_step_r = None
                      ):  # -> [*, N, 5] Rigid
     """Compute all residue frames given torsion
         angles and the fixed backbone coordinates.
@@ -278,6 +278,13 @@ def torsion_to_frame(aatype_idx: torch.Tensor,  # [*, N]
 
     # side chain frames [*, N, 5] Rigid
     # We create 3 dummy identity matrix for omega and other angles which is not used in the frame attention process
+
+    angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
+    #if not given the local frame, use the initial default frame
+    if not last_step_r:
+        last_step_r = get_default_r(aatype_idx)
+    bb_to_gb = geometry.get_gb_trans(bb_coord)
+
     sc_to_bb, local_r = rotate_sidechain(aatype_idx, angles_sin_cos, last_step_r)
     all_frames_to_global = geometry.Rigid_mult(bb_to_gb[..., None], sc_to_bb)
 

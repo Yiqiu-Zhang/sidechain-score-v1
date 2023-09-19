@@ -742,6 +742,7 @@ class CathSideChainAnglesDataset(Dataset):
             )
         return structures
     '''
+
     def sample_length(self, n: int = 1) -> Union[int, List[int]]:
         """
         Sample a observed length of a sequence
@@ -1303,25 +1304,11 @@ class NoisedAnglesDataset(Dataset):
         ), f"Using dset_key {self.dset_key} - expected tensor but got {type(vals)}"
 
         # Sample a random timepoint and add corresponding noise
-        if use_t_val is not None:
-            assert (
-                not self.exhaustive_timesteps
-            ), "Cannot use specific t in exhaustive mode"
-            t_val = np.clip(np.array([use_t_val]), 0, self.timesteps - 1)
-            t = torch.from_numpy(t_val).long()
-        elif self.exhaustive_timesteps:
-            t = torch.tensor([time_index]).long()  # list to get correct shape
-        else:
-            t = torch.randint(0, self.timesteps, (1,)).long()
-            # [0, pi]
-            sigma = np.exp(np.random.uniform(low=np.log(sigma_min), high=np.log(sigma_max)))
-            sigma = torch.tensor(sigma)
 
-        # Get the values for alpha and beta
-        sqrt_alphas_cumprod_t = self.alpha_beta_terms["sqrt_alphas_cumprod"][t.item()]
-        sqrt_one_minus_alphas_cumprod_t = self.alpha_beta_terms[
-            "sqrt_one_minus_alphas_cumprod"
-        ][t.item()]
+        sigma = np.exp(np.random.uniform(low=np.log(sigma_min), high=np.log(sigma_max)))
+        sigma = torch.tensor(sigma)
+
+
 
         # Noise is sampled within range of [-pi, pi], and optionally
         # shifted to [0, 2pi] by adding pi
@@ -1336,8 +1323,6 @@ class NoisedAnglesDataset(Dataset):
             "corrupted": noised_vals,
             "t": sigma,
             "known_noise": noise,
-            "sqrt_alphas_cumprod_t": sqrt_alphas_cumprod_t,
-            "sqrt_one_minus_alphas_cumprod_t": sqrt_one_minus_alphas_cumprod_t,
         }  # // double check
 
         # Update dictionary if wrapped dset returns dicts, else just return

@@ -11,7 +11,7 @@ import numpy as np
 import math
 from torch.autograd import Variable
 from write_preds_pdb import structure_build_score
-from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, Rotation, Rigid_mult
+from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, Rotation, Rigid_update_trans
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
 
@@ -158,7 +158,6 @@ class InputEmbedder(nn.Module):
                                         no_blocks,
                                         no_heads,
                                         pair_transition_n)
-
 
 
         self.linear_tf_n = nn.Linear(nf_dim, c_n)
@@ -811,26 +810,24 @@ class AngleResnetBlock(nn.Module):
 
         return t
 
-class TransUpdate(nn.Module):
+class RigidUpdate(nn.Module):
     def __init__(self,
                  c_n):
 
-        super(TransUpdate, self).__init__()
+        super(RigidUpdate, self).__init__()
         self.c_n = c_n
         self.linear_initial = nn.Linear(self.c_n, self.c_n)
         self.relu = nn.ReLU()
-        self.linear = nn.Linear(self.c_n, 1)
+        self.linear = nn.Linear(self.c_n, 3)
 
     def forward(self,
                 s,
-                local_r: Rigid,
                 ):
         """
                 Args:
                     s:
                         [B, N_rigid, c_n] single embedding
-                    local_r:
-                        [B, N_res, 8] Rigid
+
                         StructureModule
                 Returns:
                     [*, no_angles] predicted angles
@@ -839,21 +836,10 @@ class TransUpdate(nn.Module):
 
         s = self.linear_initial(s)
         s = self.relu(s)
-        # [B, N_rigid, 1]
+        # [B, N_rigid, 3]
         trans = self.linear(s)
-        rot_shape = local_r.shape
-        # [B, N_res, 5]
-        trans = trans.reshape(rot_shape[0], rot_shape[1], -1)
 
-        all_trans = trans.new_zeros(*rot_shape, 3)
-        all_trans[..., 4:, 0] = trans[...,1:]
-
-        # sth like this
-
-        r_trans = Rigid(Rotation.identity(rot_shape), all_trans)
-        transed_local_r = Rigid_mult(local_r, r_trans)
-
-        return transed_local_r
+        return trans
 
 class StructureUpdateModule(nn.Module):
 
@@ -899,6 +885,7 @@ class StructureUpdateModule(nn.Module):
                                         no_rigids,
                                         epsilon)
         '''
+        self.rigid_update = RigidUpdate(c_n)
 
         self.edge_transition = EdgeTransition(c_n,
                                               c_z,
@@ -914,12 +901,19 @@ class StructureUpdateModule(nn.Module):
                 pair_mask,
                 E_idx
                 ):
+        sum_local_trans = torch.zeros((*rigids.shape,3),
+                                      device=node_emb.device)
 
         #node_emb = torch.clone(init_node_emb)
         for i, block in enumerate(self.blocks):
             node_emb = block(node_emb, pair_emb, rigids, pair_mask, E_idx)
 
             pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
+
+            # local translate update
+            local_trans = self.rigid_update(node_emb)
+
+            rigids = Rigid_update_trans(rigids, local_trans)
 
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
 
@@ -933,8 +927,9 @@ class StructureUpdateModule(nn.Module):
 
             
             # rigids = rigids * rigid_mask
+            sum_local_trans += local_trans
 
-        return node_emb
+        return node_emb, sum_local_trans
 
 class StructureBlock(nn.Module):
     def __init__(self,
@@ -1112,7 +1107,7 @@ class RigidDiffusion(nn.Module):
                                                 sigma)
           
         # [*, N_res, c_n * 5]      
-        node_emb = self.structure_update(init_node_emb,
+        node_emb, sum_local_t= self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
                                          pair_mask_e,
@@ -1126,6 +1121,6 @@ class RigidDiffusion(nn.Module):
 
         #transed_local_r = self.trans_update(node_emb, local_r)
 
-        return score #, transed_local_r
+        return score, sum_local_t
 
 

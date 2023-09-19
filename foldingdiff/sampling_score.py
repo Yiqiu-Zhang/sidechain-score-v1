@@ -19,12 +19,8 @@ from foldingdiff import beta_schedules
 from foldingdiff import utils
 from foldingdiff import datasets_score as dsets
 from foldingdiff import modelling_score as modelling
-from write_preds_pdb import structure_build_score as structure_build, \
-    geometry
+from write_preds_pdb import structure_build_score as structure_build
 
-# return all frame instead of sidechain rigid frame 
-def rigid_apply_update(seq, bb_to_gb, delta_chi, current_local):
-    return structure_build.torsion_to_frame(seq, bb_to_gb, delta_chi, current_local)
 
 @torch.no_grad()
 def p_sample_loop_score(
@@ -41,16 +37,10 @@ def p_sample_loop_score(
         sigma_min=0.01 * np.pi,
         steps=100,
 ):
-    # [*, N_rigid, 4, 2]
-    angles_sin_cos = torch.stack([torch.sin(corrupted_angles), torch.cos(corrupted_angles)], dim=-1)
-    default_r = structure_build.get_default_r(seq, corrupted_angles)
-    # [*, N_res] Rigid
-    bb_to_gb = geometry.get_gb_trans(coords)
     # [*, N_rigid] Rigid
-    rigids, current_local_r,_ = structure_build.torsion_to_frame(seq,
-                                                             bb_to_gb,
-                                                             angles_sin_cos,
-                                                             default_r)
+    rigids, current_local_r,_ = structure_build.torsion_to_frame(corrupted_angles,
+                                                                 seq,
+                                                                 coords)
 
     sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cuda')
     eps = 1 / steps
@@ -66,8 +56,7 @@ def p_sample_loop_score(
 
         sigma = torch.unsqueeze(sigma, 0)
         # , current_r
-        score= model(rigids,
-                    #current_local_r,
+        score, _= model(rigids,
                     seq,
                     sigma,
                     acid_embedding,
@@ -82,11 +71,10 @@ def p_sample_loop_score(
         g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min)))
         z = torch.normal(mean=0, std=1, size= score.shape)
         perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
-        perturb_sin_cos = torch.stack((torch.sin(perturb), torch.cos(perturb)), -1)
-        rigids, current_local_r, all_frames_to_global = rigid_apply_update(seq,
-                                                                        bb_to_gb,
-                                                                        perturb_sin_cos,
-                                                                        current_local_r)
+        rigids, current_local_r, all_frames_to_global = structure_build.torsion_to_frame(perturb,
+                                                                                         seq,
+                                                                                         coords,
+                                                                                         current_local_r)
             
 
         corrupted_angles, all_atom_positions = structure_build.rigids_to_torsion_angles(seq, all_frames_to_global)
@@ -127,7 +115,6 @@ def sample(
     temp_s = structure["seq"]
     temp_s = torch.from_numpy(temp_s)
     temp_chi = structure["chi_mask"]
-    temp_chi = torch.from_numpy(temp_chi)
     temp_rt = structure["rigid_type_onehot"]
     temp_rt = torch.from_numpy(temp_rt)
     temp_rp = structure["rigid_property"]

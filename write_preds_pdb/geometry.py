@@ -304,6 +304,14 @@ def Rigid_mult(rigid_1: Rigid,
 
     return  Rigid(Rotation(new_rot), new_trans)
 
+def Rigid_update_trans(rigid: Rigid,
+                       t_vec: torch.Tensor):
+
+    trans_update = rigid_mul_vec(rigid,t_vec)
+    new_trans = rigid.trans + trans_update
+
+    return Rigid(rigid.rot, new_trans)
+
 def flatten_rigid(rigid: Rigid) -> Rigid:
     flat_rot = rigid.rot.get_rot_mat().flatten(start_dim=-4, end_dim=-3)
     flat_trans = rigid.trans.flatten(start_dim=-3, end_dim=-2)
@@ -334,10 +342,12 @@ def invert_rot_mul_vec(rigid: Rigid,
     """
     rot_mats = rigid.rot.get_rot_mat()
     inv_rot_mats = rot_mats.transpose(-1, -2)
-    inv_trans = rot_vec(inv_rot_mats, rigid.trans)
-    rotated = rot_vec(inv_rot_mats, vec)
+    final_vec = rot_vec(inv_rot_mats, vec - rigid.trans)
 
-    return rotated - inv_trans
+    #inv_trans = rot_vec(inv_rot_mats, rigid.trans)
+    #rotated = rot_vec(inv_rot_mats, vec)
+
+    return final_vec # rotated - inv_trans
 
 def rot_matmul(
     a: torch.Tensor,
