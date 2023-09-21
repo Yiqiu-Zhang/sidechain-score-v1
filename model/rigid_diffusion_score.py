@@ -994,13 +994,13 @@ class RigidDiffusion(nn.Module):
                  num_blocks: int = 3, # StructureUpdateModule的循环次数
 
                  # InputEmbedder config
-                 nf_dim: int = 7 + 21 + 320,
+                 nf_dim: int = 7 + 19 + 320,
                  c_n: int = 384, # Node channel dimension after InputEmbedding
                  relpos_k: int = 16, # relative position neighbour range
                  edge_type: int = 10,
 
                  # PairEmbedder parameter
-                 pair_dim: int = 16 + 348 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
+                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
                  c_z: int = 64, # Pair channel dimension after InputEmbedding
                  c_hidden_tri_att: int = 16, # x2 cause we x2 the input dimension
                  c_hidden_tri_mul: int = 32, # Keep ori
@@ -1106,7 +1106,7 @@ class RigidDiffusion(nn.Module):
                                                 E_idx,
                                                 sigma)
           
-        # [*, N_res, c_n * 5]      
+        # [B, N_rigid, c_n/3]      
         node_emb, sum_local_t= self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
@@ -1117,10 +1117,12 @@ class RigidDiffusion(nn.Module):
         # 直接放到 IPA 里面怎么样
         # node_emb = node_emb.reshape(node_emb.shape[0], -1, node_emb.shape[-1] * 5)
 
+        # [B, N_rigid, c_n] -->  [B, N_res,4]    
         score = self.score_predictor(node_emb, init_node_emb)
 
         #transed_local_r = self.trans_update(node_emb, local_r)
 
+        # [B, N_res,4],  [B, N_rigid, 3] 
         return score, sum_local_t
 
 

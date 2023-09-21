@@ -571,14 +571,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         Validation step
         """
         with torch.no_grad():
-            avg_loss = self._get_loss_terms_grad(
-                batch,
-                write_preds=os.path.join(
-                    self.write_preds_to_dir, f"{self.write_preds_counter}_preds.json"
-                )
-                if self.write_preds_to_dir
-                else None,
-            )
+            avg_loss = self._get_loss_terms_grad(batch)
             self.write_preds_counter += 1
 
         # Log each of the loss terms

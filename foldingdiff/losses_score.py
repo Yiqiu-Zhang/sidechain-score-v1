@@ -276,13 +276,15 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-1, -2, -3))
 
-    # [B, N_res, 8, 3]
+    # [B, N_rigid, 3]
     d_error = torch.sqrt(torch.sum((known_distance - sum_local_t) ** 2, dim=-1) + eps)
     d_error = torch.clamp(d_error, min=0, max=clamp_distance)
 
     norm_d_error  = d_error/ length_scale
-    # [B, N_res, 4]
-    trans_loss = mask_mean(mask, norm_d_error, dim=(-1,-2, -3))
+    # [B, N_rigid]
+    norm_d_error = norm_d_error.reshape(norm_d_error.shape[0],-1, 5)
+    trans_mask = F.pad(mask,(1,0), "constant", 1)
+    trans_loss = mask_mean(trans_mask, norm_d_error, dim=(-1,-2, -3))
 
     return loss + 0.5*trans_loss
 #=======================================new loss=========================================

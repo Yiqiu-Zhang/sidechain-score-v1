@@ -25,7 +25,7 @@ def make_rigid_feature(sequence):
             rigid_property[res_idx][i][:] = constant.rigid_type_property[rigid]
 
     rigid_type = torch.tensor(rigid_type, dtype=torch.int64)
-    rigid_type_onehot = F.one_hot(rigid_type, 21)  # with the empty rigid type 0
+    rigid_type_onehot = F.one_hot(rigid_type, 19)  # with the empty rigid type 0
     rigid_type_onehot = rigid_type_onehot * torch.unsqueeze(torch.tensor(rigid_type_mask), -1)
 
     rigid_type_onehot = np.array(rigid_type_onehot)  # (L,5,20)

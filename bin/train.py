@@ -9,6 +9,7 @@ sbatch -p bio_s1 --ntasks-per-node=1 --cpus-per-task=64 --gres=gpu:7  IPA_Score_
 export http_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
 export https_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
 swatch  -n  SH-IDC1-10-140-1-163  nv
+请问如何查看之前完成的任务，用什么命令。 sacct -u  ad账号
 """
 
 import os, sys
@@ -164,12 +165,12 @@ def get_train_valid_test_sets(
             pad=max_seq_len,
             min_length=min_seq_len,
             trim_strategy=seq_trim_strategy,
-            zero_center=False if angles_definitions == "cart-coords" else False,
+            zero_center=False,
             toy=toy,
         )
         for s in splits
     ]
-    tt = clean_dsets[0][0]["seq"]
+
     assert len(clean_dsets) == len(splits)
     print("=========================================================")
     # Set the training set mean to the validation set mean
@@ -178,23 +179,8 @@ def get_train_valid_test_sets(
         for i in range(1, len(clean_dsets)):
             clean_dsets[i].means = clean_dsets[0].means
 
-    if syn_noiser != "":
-        if syn_noiser == "halfhalf":
-            logging.warning("Using synthetic half-half noiser")
-            dset_noiser_class = datasets.SynNoisedByPositionDataset
-        else:
-            raise ValueError(f"Unknown synthetic noiser {syn_noiser}")
-    else:
-        if single_angle_debug > 0:
-            logging.warning("Using single angle noise!")
-            dset_noiser_class = functools.partial(
-                datasets.SingleNoisedAngleDataset, ft_idx=single_angle_debug
-            )
-        elif single_time_debug:
-            logging.warning("Using single angle and single time noise!")
-            dset_noiser_class = datasets.SingleNoisedAngleAndTimeDataset
-        else:
-            dset_noiser_class = datasets.NoisedAnglesDataset
+
+    dset_noiser_class = datasets.NoisedAnglesDataset
 
     logging.info(f"Using {dset_noiser_class} for noise")
     noised_dsets = [
