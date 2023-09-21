@@ -303,7 +303,7 @@ class EdgeInvariantPointAttention(nn.Module):
             no_heads: int,  # 8
             no_qk_points: int,  # 4
             no_v_points: int,  # 8
-            inf: float = 1e5,
+            inf: float = 1e8,
             eps: float = 1e-6,
     ):
         super(EdgeInvariantPointAttention, self).__init__()
@@ -319,16 +319,16 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # These linear layers differ from  Alphafold IPA module, Here we use standard nn.Linear initialization
         hc = self.c_hidden * self.no_heads
-        self.linear_q = nn.Linear(self.c_n, hc)
-        self.linear_kv = nn.Linear(self.c_n, 2 * hc)
+        self.linear_q = nn.Linear(self.c_n, hc, bias=False)
+        self.linear_kv = nn.Linear(self.c_n, 2 * hc, bias=False)
 
         hpq = self.no_heads * self.no_qk_points * 3
-        self.linear_q_points = nn.Linear(self.c_n, hpq)
+        self.linear_q_points = nn.Linear(self.c_n, hpq, bias=False)
 
         hpkv = self.no_heads * (self.no_qk_points + self.no_v_points) * 3
-        self.linear_kv_points = nn.Linear(self.c_n, hpkv)
+        self.linear_kv_points = nn.Linear(self.c_n, hpkv, bias=False)
 
-        self.linear_b = nn.Linear(self.c_z, self.no_heads)
+        self.linear_b = nn.Linear(self.c_z, self.no_heads, bias=False)
 
         self.head_weights = nn.Parameter(torch.zeros(no_heads))
         ipa_point_weights_init_(self.head_weights)
@@ -516,7 +516,7 @@ class TransitionLayer(nn.Module):
 
         self.layer_norm = LayerNorm(self.c)
 
-    def forward(self, s):
+    def forward(self, s, rigid_mask):
         s_initial = s
         s = self.linear_1(s)
         s = self.relu(s)
@@ -526,6 +526,7 @@ class TransitionLayer(nn.Module):
 
         s = s + s_initial
 
+        s = s * rigid_mask[...,None]
         s = self.layer_norm(s)
 
         return s
@@ -898,6 +899,7 @@ class StructureUpdateModule(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
+                rigid_mask,
                 pair_mask,
                 E_idx
                 ):
@@ -906,13 +908,13 @@ class StructureUpdateModule(nn.Module):
 
         #node_emb = torch.clone(init_node_emb)
         for i, block in enumerate(self.blocks):
-            node_emb = block(node_emb, pair_emb, rigids, pair_mask, E_idx)
+            node_emb = block(node_emb, pair_emb, rigids, rigid_mask, pair_mask, E_idx)
 
             pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
 
             # local translate update
             local_trans = self.rigid_update(node_emb)
-
+            local_trans = local_trans * rigid_mask[...,None]
             rigids = Rigid_update_trans(rigids, local_trans)
 
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
@@ -975,16 +977,17 @@ class StructureBlock(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
+                rigid_mask,
                 pair_mask,
-                E_idx
+                E_idx,
                 ):
 
         # [*, N_rigid, c_n]
         # ipa_emb = self.ipa(node_emb, rigids,pair_mask)
 
         node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids, pair_mask, E_idx)
-        node_emb = self.ipa_ln(node_emb)
-        node_emb = self.node_transition(node_emb)
+        node_emb = self.ipa_ln(node_emb) # 即使是没用的rigid 最后经过layer norm之后也变的有 东西了 而且和正常的 node数值一样
+        node_emb = self.node_transition(node_emb, rigid_mask)
 
         return node_emb
 
@@ -1110,6 +1113,7 @@ class RigidDiffusion(nn.Module):
         node_emb, sum_local_t= self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
+                                         rigid_mask,
                                          pair_mask_e,
                                          E_idx)
 

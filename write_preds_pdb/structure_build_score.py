@@ -20,25 +20,16 @@ device1 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def rotate_sidechain(
         restype_idx: torch.Tensor,  # [*, N]
-        angles: torch.Tensor,  # [*,N,4，2]
+        angles_sin_cos: torch.Tensor,  # [*,N,4，2]
         last_local_r: geometry.Rigid,  # [*, N, 8] Rigid
 ) -> geometry.Rigid:
-    sin_angles = angles[..., 0]  # [*,N,4]
-    cos_angles = angles[..., 1]
+    sin_angles = angles_sin_cos[..., 0]  # [*,N,4]
+    cos_angles = angles_sin_cos[..., 1]
 
     # [*,N,4] + [*,N,4] == [*,N,8]
     # adding 4 zero angles which means no change to the default value.
-    # =============================训练时保留，解开注释===================================================#
     sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to('cuda'), sin_angles.to('cuda')], dim=-1)
     cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to('cuda'), cos_angles.to('cuda')], dim=-1)
-    # =============================训练时保留，解开注释===================================================#
-
-    # =============================训练时移除，解开注释============================================================#
-    # sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4), sin_angles],dim=-1)
-    # cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4), cos_angles],dim=-1)
-    # =============================训练时移除，解开注释============================================================#
-
-    # print("sin_angles==",sin_angles.shape)
 
     # [*, N, 8, 3, 3]
     # Produces rotation matrices of the form:
@@ -49,7 +40,7 @@ def rotate_sidechain(
     # ]
     # This follows the original code rather than the supplement, which uses
     # different indices.
-    all_rots = angles.new_zeros(last_local_r.rot.get_rot_mat().shape)
+    all_rots = angles_sin_cos.new_zeros(last_local_r.rot.get_rot_mat().shape)
     # print("orign all_rots==",all_rots.shape)
     all_rots[..., 0, 0] = 1
     all_rots[..., 1, 1] = cos_angles
