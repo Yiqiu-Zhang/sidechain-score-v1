@@ -902,9 +902,12 @@ class StructureUpdateModule(nn.Module):
                 pair_mask,
                 E_idx
                 ):
-        sum_local_trans = torch.zeros((*rigids.shape,3),
-                                      device=node_emb.device)
-
+        B, N_rigid = rigids.shape
+        sum_local_trans = torch.zeros((B,N_rigid,3),device=node_emb.device)
+        modified_rigid_mask = torch.ones((B,int(N_rigid/5),5),device=node_emb.device)
+        modified_rigid_mask[...,0] = 0.
+        modified_rigid_mask = modified_rigid_mask.reshape(B, N_rigid) * rigid_mask
+        #node_emb = torch.clone(init_node_emb)
         #node_emb = torch.clone(init_node_emb)
         for i, block in enumerate(self.blocks):
             node_emb = block(node_emb, pair_emb, rigids, rigid_mask, pair_mask, E_idx)
@@ -913,8 +916,8 @@ class StructureUpdateModule(nn.Module):
 
             # local translate update
             local_trans = self.rigid_update(node_emb)
-            local_trans = local_trans * rigid_mask[...,None]
-            rigids = Rigid_update_trans(rigids, local_trans)
+            modified_local_trans = local_trans * modified_rigid_mask[...,None]
+            rigids = Rigid_update_trans(rigids, modified_local_trans)
 
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
 

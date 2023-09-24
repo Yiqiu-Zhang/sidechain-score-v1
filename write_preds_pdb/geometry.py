@@ -316,6 +316,9 @@ def Rigid_update_trans(rigid: Rigid,
     updated_loc = loc_rigid_mul_vec(rigid,t_vec)
 
     return Rigid(rigid.rot, rigid.trans, updated_loc)
+    #updated_trans = rigid_mul_vec(rigid,t_vec)
+
+    #return Rigid(rigid.rot, updated_trans)
 
 def flatten_rigid(rigid: Rigid) -> Rigid:
     flat_rot = rigid.rot.get_rot_mat().flatten(start_dim=-4, end_dim=-3)
