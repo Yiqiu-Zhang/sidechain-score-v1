@@ -36,16 +36,16 @@ def rotate_sidechain(
 
     # [*,N,4] + [*,N,4] == [*,N,8]
     # adding 4 zero angles which means no change to the default value.
-    #=============================训练时.to('cuda')保留，解开注释===================================================#
-    sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to('cuda'), sin_angles.to('cuda')],dim=-1)
-    cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to('cuda'), cos_angles.to('cuda')],dim=-1)
-    #=============================训练时.to('cuda')保留，解开注释===================================================#
+    #=============================训练时.to('cpu')保留，解开注释===================================================#
+    sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to('cpu'), sin_angles.to('cpu')],dim=-1)
+    cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to('cpu'), cos_angles.to('cpu')],dim=-1)
+    #=============================训练时.to('cpu')保留，解开注释===================================================#
 
     
-    #=============================训练时.to('cuda')移除，解开注释============================================================#
+    #=============================训练时.to('cpu')移除，解开注释============================================================#
     #sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4), sin_angles],dim=-1)
     #cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4), cos_angles],dim=-1)
-    #=============================训练时.to('cuda')移除，解开注释============================================================#
+    #=============================训练时.to('cpu')移除，解开注释============================================================#
 
     #print("sin_angles==",sin_angles.shape)
     
@@ -260,7 +260,7 @@ def frame_to_edge(frames: geometry.Rigid, # [*, N_rigid] Rigid
     restype_frame5_mask = torch.tensor(restype_frame_mask)
 
     # [*, N_res, 5]
-    frame_mask = restype_frame5_mask[aatype_idx, ...].to('cuda')
+    frame_mask = restype_frame5_mask[aatype_idx, ...].to('cpu')
     frame_mask = frame_mask * pad_mask[..., None]
     
     # [*, N_rigid]

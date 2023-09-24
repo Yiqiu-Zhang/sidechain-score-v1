@@ -525,10 +525,10 @@ atom_type_num = len(atom_types)  # := 37.
 restype_atom14_to_rigid_group = np.zeros([21, 14], dtype=int)
 restype_atom14_mask = np.zeros([21, 14], dtype=np.float32)
 restype_atom14_rigid_group_positions = np.zeros([21, 14, 3], dtype=np.float32)
-restype_rigid_group_default_frame = np.zeros([21, 8, 4, 4], dtype=np.float32)
+restype_rigid_group_default_frame = np.zeros([21, 8, 5, 5], dtype=np.float32)
 restype_atom37_mask = np.zeros([21, 37], dtype=np.float32)
 
-def make_rigid_trans(ex, y_vec, t):
+def make_rigid_trans(ex, y_vec, t, p):
     """Create rigid rotation and translation matrix with the given axis and translation vec
     Return a  4x4 numpy array"""
 
@@ -538,10 +538,10 @@ def make_rigid_trans(ex, y_vec, t):
     ey_norm = ey/ np.linalg.norm(ey)
 
     ez_norm = np.cross(ex_norm, ey_norm)
+    loc = t + p
+    m = np.stack([ex_norm, ey_norm, ez_norm, t, loc]).transpose()
 
-    m = np.stack([ex_norm, ey_norm, ez_norm, t]).transpose()
-
-    m = np.concatenate([m, [[0.0, 0.0, 0.0, 1.0]]], axis=0)
+    m = np.concatenate([m, [[0.0, 0.0, 0.0, 1.0, 0.0],[0.0, 0.0, 0.0, 0.0, 1.0]]], axis=0)
 
     return m
 
@@ -565,13 +565,13 @@ def _make_rigid_group_constants():
 
 
         # backbone to backbone is the identity transform
-        restype_rigid_group_default_frame[residx, 0, :, :] = np.eye(4)
+        restype_rigid_group_default_frame[residx, 0, :, :] = np.eye(5)
 
 
         # pre-omega-frame to backbone (currently dummy identity matrix)
-        restype_rigid_group_default_frame[residx, 1, :, :] = np.eye(4)
-        restype_rigid_group_default_frame[residx, 2, :, :] = np.eye(4)
-        restype_rigid_group_default_frame[residx, 3, :, :] = np.eye(4)
+        restype_rigid_group_default_frame[residx, 1, :, :] = np.eye(5)
+        restype_rigid_group_default_frame[residx, 2, :, :] = np.eye(5)
+        restype_rigid_group_default_frame[residx, 3, :, :] = np.eye(5)
 
 
         '''
@@ -600,9 +600,10 @@ def _make_rigid_group_constants():
                 res_atom_position[name] for name in base_atom_names
             ]
             mat = make_rigid_trans(
-                ex=base_atom_positions[2] - base_atom_positions[1],
-                y_vec=base_atom_positions[0] - base_atom_positions[1],
-                t=base_atom_positions[2],
+                ex=base_atom_positions[2] - base_atom_positions[1], # CB position in CA frame
+                y_vec=base_atom_positions[0] - base_atom_positions[1], # N direction, ex and ey are the N CA CB plain
+                t=base_atom_positions[2], # CB position in CA frame
+                p=base_atom_positions[3] # CG poisiton in CB frame
             )
             restype_rigid_group_default_frame[residx, 4, :, :] = mat
 
@@ -612,13 +613,16 @@ def _make_rigid_group_constants():
         # luckily all rotation axes for the next frame start at (0,0,0) of the
         # previous frame
         for chi_idx in range(1, 4):
-            if chi_angles_mask[residx][chi_idx]:
+            if chi_angles_mask[residx][chi_idx]: # ['CA', 'CB', 'CG', 'CD']
                 axis_end_atom_name = chi_angles_atoms[restype3][chi_idx][2]
+                tail_atom_name = chi_angles_atoms[restype3][chi_idx][3]
                 axis_end_atom_position = res_atom_position[axis_end_atom_name]
+                tail_atom_position = res_atom_position[tail_atom_name]
                 mat = make_rigid_trans(
-                    ex=axis_end_atom_position,
-                    y_vec=np.array([-1.0, 0.0, 0.0]),
-                    t=axis_end_atom_position,
+                    ex=axis_end_atom_position, # CG position based on CB frame
+                    y_vec=np.array([-1.0, 0.0, 0.0]), # - the previous rotation axis
+                    t=axis_end_atom_position, # CG position based on CB frame
+                    p=tail_atom_position
                 )
                 restype_rigid_group_default_frame[
                     residx, 4 + chi_idx, :, :

@@ -28,8 +28,8 @@ def rotate_sidechain(
 
     # [*,N,4] + [*,N,4] == [*,N,8]
     # adding 4 zero angles which means no change to the default value.
-    sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to('cuda'), sin_angles.to('cuda')], dim=-1)
-    cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to('cuda'), cos_angles.to('cuda')], dim=-1)
+    sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to('cpu'), sin_angles.to('cpu')], dim=-1)
+    cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to('cpu'), cos_angles.to('cpu')], dim=-1)
 
     # [*, N, 8, 3, 3]
     # Produces rotation matrices of the form:
@@ -50,7 +50,7 @@ def rotate_sidechain(
 
     # print("all_rots==",all_rots.shape) # torch.Size([128, 8, 3, 3])
     # print('Rotation =========',geometry.Rotation(rot_mats = all_rots).shape)
-    all_rots = geometry.Rigid(geometry.Rotation(rot_mats=all_rots), None)
+    all_rots = geometry.Rigid(geometry.Rotation(rot_mats=all_rots), None, None)
 
     # print("final all_rots==",all_rots.shape) #torch.Size([128])
 
@@ -80,7 +80,7 @@ def rotate_sidechain(
 
 def frame_to_pos(frames, aatype_idx):
     # [21 , 14]
-    group_index = torch.tensor(restype_atom14_to_rigid_group).to('cuda')
+    group_index = torch.tensor(restype_atom14_to_rigid_group).to('cpu')
 
     # [21 , 14] idx [*, N] -> [*, N, 14]
     group_mask = group_index[aatype_idx, ...]
@@ -94,12 +94,12 @@ def frame_to_pos(frames, aatype_idx):
     map_atoms_to_global = geometry.map_rigid_fn(map_atoms_to_global)
 
     # [21 , 14]
-    atom_mask = torch.tensor(restype_atom14_mask).to('cuda')
+    atom_mask = torch.tensor(restype_atom14_mask).to('cpu')
     # [*, N, 14, 1]
     atom_mask = atom_mask[aatype_idx, ...].unsqueeze(-1)
 
     # [21, 14, 3]
-    default_pos = torch.tensor(restype_atom14_rigid_group_positions).to('cuda')
+    default_pos = torch.tensor(restype_atom14_rigid_group_positions).to('cpu')
     # [*, N, 14, 3]
     default_pos = default_pos[aatype_idx, ...]
 
@@ -131,7 +131,7 @@ def atom14_to_atom37_batched(atom14, aa_idx):  # atom14: [*, N, 14, 3]
     residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
 
     # [N, 37]
-    atom37_mask = torch.tensor(restype_atom37_mask).to('cuda')
+    atom37_mask = torch.tensor(restype_atom37_mask).to('cpu')
     atom37_mask = atom37_mask[aa_idx]
 
     # [N, 37, 3]
@@ -171,7 +171,7 @@ def atom14_to_atom37(atom14, aa_idx):  # atom14: [*, N, 14, 3]
 
     residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
     # [N, 37]
-    atom37_mask = torch.tensor(restype_atom37_mask).to('cuda')
+    atom37_mask = torch.tensor(restype_atom37_mask).to('cpu')
     atom37_mask = atom37_mask[aa_idx]
 
     # [N, 37, 3]
@@ -240,7 +240,7 @@ def torsion_to_position(aatype_idx: torch.Tensor,  # [*, N]
 
 
 def get_default_r(restype_idx):
-    default_frame = torch.tensor(restype_rigid_group_default_frame).to('cuda')
+    default_frame = torch.tensor(restype_rigid_group_default_frame).to('cpu')
 
     # [*, N, 8, 4, 4]
     res_default_frame = default_frame[restype_idx, ...]
@@ -302,8 +302,8 @@ def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
     restype_frame5_mask = torch.tensor(restype_frame_mask)
 
     # [*, N_res, 5]
-    frame_mask = restype_frame5_mask[aatype_idx, ...].to('cuda')
-    frame_mask = frame_mask * pad_mask[..., None].to('cuda')
+    frame_mask = restype_frame5_mask[aatype_idx, ...].to('cpu')
+    frame_mask = frame_mask * pad_mask[..., None].to('cpu')
 
     # [*, N_rigid]
     flat_mask = torch.flatten(frame_mask, start_dim=-2)

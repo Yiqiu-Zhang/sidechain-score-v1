@@ -273,7 +273,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     #score_norm = torus_score.score_norm(sigma_idx)
 
     loss = mask_mean(mask,
-                    (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
+                    (score.to('cpu') - predicted_score.to('cpu')) ** 2 / score_norm.to('cpu'),
                      dim=(-1, -2, -3))
 
     # [B, N_rigid, 3]

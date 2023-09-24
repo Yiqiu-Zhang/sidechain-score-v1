@@ -105,6 +105,7 @@ class Rigid:
     def __init__(self,
                  rots: Rotation,
                  trans: Optional[torch.Tensor],
+                 loc: torch.Tensor
                  ):
         if trans is None:
             batch_dims = rots.shape
@@ -112,10 +113,13 @@ class Rigid:
             device = rots.get_rot_mat().device
             requires_grad = rots.get_rot_mat().requires_grad
             trans = identity_trans(batch_dims, dtype, device, requires_grad)
+            loc = identity_trans(batch_dims, dtype, device, requires_grad)
+
 
 
         self.rot = rots
         self.trans = trans
+        self.loc = loc
 
     @staticmethod # 不要求class被实例化，可以像 xx.py xx.identity 一样调用
     def identity(shape: Tuple[int],
@@ -142,6 +146,7 @@ class Rigid:
         return Rigid(
             Rotation.identity(shape, dtype, device, requires_grad),
             identity_trans(shape, dtype, device, requires_grad),
+            identity_trans(shape, dtype, device, requires_grad),
         )
 
     def __getitem__(self, index: Any) -> Rigid:
@@ -149,7 +154,7 @@ class Rigid:
         if type(index) != tuple:
             index = (index,)
 
-        return Rigid(self.rot[index], self.trans[index + (slice(None),)])
+        return Rigid(self.rot[index], self.trans[index + (slice(None),)], self.loc[index + (slice(None),)])
     
     def __mul__(self,
         right: torch.Tensor,
@@ -169,8 +174,8 @@ class Rigid:
 
         new_rots = self.rot * right
         new_trans = self.trans * right[..., None]
-
-        return Rigid(new_rots, new_trans)
+        new_loc = self.loc * right[...,None]
+        return Rigid(new_rots, new_trans,new_loc)
 
     def edge(self):
 
@@ -181,7 +186,7 @@ class Rigid:
         rot = self.rot.get_rot_mat()
         orientation = torch.einsum('bmij,bnjk->bmnik', rot_T, rot).float()
 
-        displacement =  self.trans[...,None,:,:] - self.trans[...,None,:]
+        displacement =  self.loc[...,None,:,:] - self.loc[...,None,:]
         distance = torch.linalg.vector_norm(displacement,dim=-1).float() 
         direction = F.normalize(displacement,dim=-1).float()
         altered_direction = rot_vec(rot_T[...,None,:,:], direction).float()
@@ -195,8 +200,8 @@ class Rigid:
 
         rot = self.rot.unsqueeze(dim)
         trans = self.trans.unsqueeze(dim if dim >=0 else dim -1)
-
-        return Rigid(rot, trans)
+        loc = self.loc.unsqueeze(dim if dim >=0 else dim -1)
+        return Rigid(rot, trans, loc)
 
     @property
     def shape(self) -> torch.Size:
@@ -214,7 +219,7 @@ class Rigid:
         """
             Implements algorithm 21. Constructs transformations from sets of 3
             points using the Gram-Schmidt algorithm.
-
+            Only used for the sampling process, so ignore Rigid loc project, giving it random values.
             Args:
                 p_neg_x_axis: [*, 3] coordinates
                 origin: [*, 3] coordinates used as frame origins
@@ -247,7 +252,7 @@ class Rigid:
 
         rot_obj = Rotation(rot_mats=rots)
 
-        return Rigid(rot_obj, torch.stack(origin, dim=-1))
+        return Rigid(rot_obj, torch.stack(origin, dim=-1), torch.stack(origin, dim=-1))
 
     def invert(self) -> Rotation:
         """
@@ -271,13 +276,13 @@ def from_tensor_4x4(t: torch.Tensor) -> Rigid:
         Returns:
             T object with shape [*]
     """
-    if t.shape[-2:] != (4, 4):
+    if t.shape[-2:] != (5, 5):
         raise ValueError("Incorrectly shaped input tensor")
 
     rots = Rotation(rot_mats=t[..., :3, :3],)
     trans = t[..., :3, 3]
-
-    return Rigid(rots, trans)
+    loc = t[...,:3, 4]
+    return Rigid(rots, trans, loc)
 
 @lru_cache(maxsize=None)
 def identity_trans(
@@ -296,26 +301,27 @@ def identity_trans(
 
 def Rigid_mult(rigid_1: Rigid,
                rigid_2: Rigid) -> Rigid:
-    rot1 = rigid_1.rot.get_rot_mat().to('cuda')
-    rot2 = rigid_2.rot.get_rot_mat().to('cuda')
+    rot1 = rigid_1.rot.get_rot_mat().to('cpu')
+    rot2 = rigid_2.rot.get_rot_mat().to('cpu')
 
     new_rot = rot_matmul(rot1, rot2)
-    new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
+    new_trans = rot_vec(rot1, rigid_2.trans.to('cpu'))  + rigid_1.trans.to('cpu')
+    new_loc = rot_vec(rot1, rigid_2.loc) + rigid_1.trans
 
-    return  Rigid(Rotation(new_rot), new_trans)
+    return  Rigid(Rotation(new_rot), new_trans, new_loc)
 
 def Rigid_update_trans(rigid: Rigid,
                        t_vec: torch.Tensor):
 
-    trans_update = rigid_mul_vec(rigid,t_vec)
-    new_trans = rigid.trans + trans_update
+    updated_loc = loc_rigid_mul_vec(rigid,t_vec)
 
-    return Rigid(rigid.rot, new_trans)
+    return Rigid(rigid.rot, rigid.trans, updated_loc)
 
 def flatten_rigid(rigid: Rigid) -> Rigid:
     flat_rot = rigid.rot.get_rot_mat().flatten(start_dim=-4, end_dim=-3)
     flat_trans = rigid.trans.flatten(start_dim=-3, end_dim=-2)
-    return Rigid(Rotation(flat_rot), flat_trans)
+    flat_loc = rigid.loc.flatten(start_dim=-3, end_dim=-2)
+    return Rigid(Rotation(flat_rot), flat_trans, flat_loc)
 
 def rigid_mul_vec(rigid: Rigid,
                   vec: torch.Tensor) -> torch.Tensor:
@@ -326,8 +332,35 @@ def rigid_mul_vec(rigid: Rigid,
 
     return rotated + rigid.trans
 
+def loc_rigid_mul_vec(rigid: Rigid,
+                      vec: torch.Tensor) -> torch.Tensor:
+    '''
+    Different from rigid_mul_vec, This one is used for attention and distance calculation,
+    which is NOT related to the position calculation. To calculate the position of the
+    final atom, use rigid_mul_vec
+    '''
+    rot_mat = rigid.rot.get_rot_mat()
+    rotated = rot_vec(rot_mat, vec)
+    return rotated + rigid.loc
+
 def invert_rot_mat(rot_mat: torch.Tensor):
     return rot_mat.transpose(-1, -2)
+def loc_invert_rot_mul_vec(rigid: Rigid,
+                         vec: torch.Tensor) -> torch.Tensor:
+    """
+        The inverse of the apply() method.
+
+        Args:
+            pts:
+                A [*, 3] set of points
+        Returns:
+            [*, 3] inverse-rotated points
+    """
+    rot_mats = rigid.rot.get_rot_mat()
+    inv_rot_mats = rot_mats.transpose(-1, -2)
+    final_vec = rot_vec(inv_rot_mats, vec - rigid.loc)
+
+    return final_vec
 
 def invert_rot_mul_vec(rigid: Rigid,
                          vec: torch.Tensor) -> torch.Tensor:
@@ -419,8 +452,8 @@ def cat(rigids: Sequence[Rigid],
     rots = Rotation(rot_mats= rot_mats)
 
     trans = torch.cat([r.trans for r in rigids], dim=dim if dim >= 0 else dim - 1)
-
-    return Rigid(rots, trans)
+    loc = torch.cat([r.loc for r in rigids], dim=dim if dim >= 0 else dim - 1)
+    return Rigid(rots, trans, loc)
 
 def map_rigid_fn(rigid: Rigid):
 
@@ -473,4 +506,7 @@ def get_gb_trans(bb_pos: torch.Tensor) -> Rigid: # [*,128,4,3]
     '''
 
     new_rot = torch.nan_to_num(torch.stack([ex_norm, ey_norm, ez_norm], dim=-1))
-    return Rigid(Rotation(rot_mats=new_rot), t)
+    return Rigid(Rotation(rot_mats=new_rot),
+                 t,
+                 torch.zeros(t.shape, device=t.device)
+                 )

@@ -187,13 +187,13 @@ class InputEmbedder(nn.Module):
         d = torch.argmin(d, dim=-1)
         d = nn.functional.one_hot(d, num_classes=len(boundaries)).float()
         l = len(d.shape)
-        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cuda') #  [B, N_rigid, N_rigid, C_pair]
+        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cpu') #  [B, N_rigid, N_rigid, C_pair]
 
         rigid_rigid_idx = torch.arange(0, 5).repeat(1, seq_len).reshape(-1)
         rigid_edge = rigid_rigid_idx - rigid_rigid_idx[..., None]
         rigid_edge = rigid_edge * mask + 5* reverse_mask + torch.abs(torch.min(rigid_edge))
         rigid_edge = nn.functional.one_hot(rigid_edge, num_classes=self.edge_type).float()
-        rigid_edge = rigid_edge.unsqueeze(0).repeat(batch_size, *(1,) * len(rigid_edge.shape)).to('cuda')
+        rigid_edge = rigid_edge.unsqueeze(0).repeat(batch_size, *(1,) * len(rigid_edge.shape)).to('cpu')
 
         d = torch.cat([d,rigid_edge], dim=-1)
         return d # [B, N_rigid, N_rigid, relpos_k + 10]
@@ -244,7 +244,7 @@ class InputEmbedder(nn.Module):
         
         # add time encode
         #node_emb = node_emb + node_time
-        node_emb = node_emb * (rigid_mask[..., None].to('cuda'))
+        node_emb = node_emb * (rigid_mask[..., None].to('cpu'))
 
         ################ Pair_feature ####################
 
@@ -431,7 +431,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, K]
         a = a + pt_att
-        a = a.to('cuda') + square_mask_e.unsqueeze(-3).to('cuda')
+        a = a.to('cpu') + square_mask_e.unsqueeze(-3).to('cpu')
         a = self.softmax(a)
 
         ################
@@ -641,7 +641,7 @@ class InvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, N_rigid]
         a = a + pt_att
-        a = a.to('cuda') + square_mask.unsqueeze(-3).to('cuda')
+        a = a.to('cpu') + square_mask.unsqueeze(-3).to('cpu')
         a = self.softmax(a)
 
         ################

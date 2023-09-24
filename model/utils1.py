@@ -24,10 +24,10 @@ def rbf(D, D_min = 0., D_max=20., D_count=16):
     # Distance radial basis function
 
     D_mu = torch.linspace(D_min, D_max, D_count)
-    D_mu = D_mu.view([1] * len(D.shape) + [-1]).to('cuda')
+    D_mu = D_mu.view([1] * len(D.shape) + [-1]).to('cpu')
 
     D_sigma = (D_max - D_min) / D_count
-    D_expand = torch.unsqueeze(D, -1).to('cuda')
+    D_expand = torch.unsqueeze(D, -1).to('cpu')
 
     RBF = torch.exp(-((D_expand - D_mu) / D_sigma)**2)
    

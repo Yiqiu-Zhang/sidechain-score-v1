@@ -131,7 +131,7 @@ class InputEmbedder(nn.Module):
         d = torch.argmin(d, dim=-1)
         d = nn.functional.one_hot(d, num_classes=len(boundaries)).float()
         l = len(d.shape)
-        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cuda') #  [B, N_rigid, N_rigid, C_pair]
+        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cpu') #  [B, N_rigid, N_rigid, C_pair]
         return d # [B, N_rigid, N_rigid, C_pair]
 
     def forward(self,
@@ -179,7 +179,7 @@ class InputEmbedder(nn.Module):
 
         # add time encode
         node_emb = node_emb + node_time
-        node_emb = node_emb * (rigid_mask[..., None].to('cuda'))
+        node_emb = node_emb * (rigid_mask[..., None].to('cpu'))
 
         ################ Pair_feature ####################
 
@@ -365,7 +365,7 @@ class InvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, N_rigid]
         a = a + pt_att
-        a = a.to('cuda') + square_mask.unsqueeze(-3).to('cuda')
+        a = a.to('cpu') + square_mask.unsqueeze(-3).to('cpu')
         a = self.softmax(a)
 
         ################
@@ -804,7 +804,7 @@ class StructureUpdateModule(nn.Module):
             _,_,distance, altered_direction, orientation = structure_build.frame_to_edge(rigids, seq_idx)
 
             '''
-            pair_emb = self.edge_transition(node_emb, pair_emb, distance) * (pair_mask[..., None].to('cuda'))
+            pair_emb = self.edge_transition(node_emb, pair_emb, distance) * (pair_mask[..., None].to('cpu'))
             '''
 
             pair_emb = self.edge_update(distance, altered_direction, orientation, pair_time, relative_pos)

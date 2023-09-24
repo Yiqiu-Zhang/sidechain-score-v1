@@ -11,7 +11,7 @@ import numpy as np
 import math
 from torch.autograd import Variable
 from write_preds_pdb import structure_build_score
-from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, Rotation, Rigid_update_trans
+from write_preds_pdb.geometry import Rigid, loc_rigid_mul_vec, loc_invert_rot_mul_vec, Rotation, Rigid_update_trans
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
 
@@ -184,11 +184,11 @@ class InputEmbedder(nn.Module):
         d = torch.argmin(d, dim=-1)
         d = nn.functional.one_hot(d, num_classes=len(boundaries)).float()
         l = len(d.shape)
-        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cuda') #  [B, N_rigid, N_rigid, C_pair]
+        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cpu') #  [B, N_rigid, N_rigid, C_pair]
 
-        rigid_rigid_idx = torch.arange(0, 5).repeat(1, seq_len).reshape(-1).to('cuda') 
+        rigid_rigid_idx = torch.arange(0, 5).repeat(1, seq_len).reshape(-1).to('cpu') 
         rigid_edge = rigid_rigid_idx - rigid_rigid_idx[..., None]
-        rigid_edge = rigid_edge * mask.to('cuda')  + 5* reverse_mask.to('cuda')  + torch.abs(torch.min(rigid_edge))
+        rigid_edge = rigid_edge * mask.to('cpu')  + 5* reverse_mask.to('cpu')  + torch.abs(torch.min(rigid_edge))
         rigid_edge = nn.functional.one_hot(rigid_edge, num_classes=self.edge_type).float()
         rigid_edge = rigid_edge.unsqueeze(0).repeat(batch_size, *(1,) * len(rigid_edge.shape))
 
@@ -235,7 +235,7 @@ class InputEmbedder(nn.Module):
         expand_diffusion_mask[..., 0] = False
 
         # [batch, N_rigid, c_n/2]
-        expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cuda')
+        expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cpu')
         mask_time = torch.cat([torch.sin(expand_diffusion_mask), torch.cos(expand_diffusion_mask)], dim=-1)
         node_sigma = torch.log(sigma / sigma_min) / np.log(sigma_max / sigma_min) * 10000
         node_time = torch.tile(
@@ -257,7 +257,7 @@ class InputEmbedder(nn.Module):
         
         # add time encode
         node_emb = node_emb + node_time
-        node_emb = node_emb * (rigid_mask[..., None].to('cuda'))
+        node_emb = node_emb * (rigid_mask[..., None].to('cpu'))
 
         ################ Pair_feature ####################
 
@@ -343,15 +343,15 @@ class EdgeInvariantPointAttention(nn.Module):
 
     def forward(self,
              s: torch.Tensor, # node_emb
-             z: torch.Tensor,
+             z_e: torch.Tensor, # [*, N_rigid, K, C_z]
              r: Rigid, # I will need to make the rigid also become neighbor???
              pair_mask: torch.Tensor,  # pair_mask
              E_idx: torch.Tensor,
              )-> torch.Tensor:
 
 
-        # [*, N_rigid, K, C_z]
-        z_e = [z]
+
+
 
 
 
@@ -380,7 +380,7 @@ class EdgeInvariantPointAttention(nn.Module):
         q_pts = torch.split(q_pts, q_pts.shape[-1] // 3, dim=-1)
         q_pts = torch.stack(q_pts, dim=-1)  # [*, N_rigid, H * P_q, 3]
         # q_pts = r[..., None].apply(q_pts)
-        q_pts = rigid_mul_vec(r[..., None], q_pts)  # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * P_q, 3]
+        q_pts = loc_rigid_mul_vec(r[..., None], q_pts)  # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * P_q, 3]
 
         # [*, N_rigid, H, P_q, 3]
         q_pts = q_pts.view(
@@ -396,7 +396,7 @@ class EdgeInvariantPointAttention(nn.Module):
         # kv_pts = r[..., None].apply(kv_pts)
 
         # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * (P_q + P_v), 3]
-        kv_pts = rigid_mul_vec(r[..., None], kv_pts)
+        kv_pts = loc_rigid_mul_vec(r[..., None], kv_pts)
 
         # [*, N_rigid, H, (P_q + P_v), 3]
         kv_pts = kv_pts.view(kv_pts.shape[:-2] + (self.no_heads, -1, 3))
@@ -411,8 +411,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, K, H]
-        b = self.linear_b(z_e[0])
-
+        b = self.linear_b(z_e)
 
         # [*, H, N_rigid, K]
         qT_k = torch.matmul(
@@ -455,7 +454,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, K]
         a = a + pt_att
-        a = a.to('cuda') + square_mask_e.unsqueeze(-3).to('cuda')
+        a = a.to('cpu') + square_mask_e.unsqueeze(-3).to('cpu')
         a = self.softmax(a)
 
         ################
@@ -475,7 +474,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # [*, N_rigid, H, P_v, 3]
         o_pt = permute_final_dims(o_pt, [2, 0, 3, 1])
-        o_pt = invert_rot_mul_vec(r[..., None, None], o_pt)
+        o_pt = loc_invert_rot_mul_vec(r[..., None, None], o_pt)
 
         # [*, N_rigid, H * P_v]
         o_pt_norm = flatten_final_dims(
@@ -487,7 +486,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, H, C_z] = [*, N_rigid, H, K] x [*, N_rigid, K, C_z]
-        o_pair = torch.matmul(a.transpose(-2, -3), z_e[0].to(dtype=a.dtype))
+        o_pair = torch.matmul(a.transpose(-2, -3), z_e.to(dtype=a.dtype))
 
         # [*, N_rigid, H * C_z]
         o_pair = flatten_final_dims(o_pair, 2).float()
