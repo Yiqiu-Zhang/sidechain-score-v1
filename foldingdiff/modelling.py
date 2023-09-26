@@ -653,7 +653,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         angles = batch["angles"]
 
      #   diffusion_mask = torch.rand(angles.shape[:-1]) < self.diffusion_fraction
-     #   diffusion_mask = diffusion_mask[...,None].to('cpu')
+     #   diffusion_mask = diffusion_mask[...,None].to('cuda')
      #   corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
 
         true_chi_sin = torch.sin(angles)

@@ -185,11 +185,11 @@ class InputEmbedder(nn.Module):
         d = torch.argmin(d, dim=-1)
         d = nn.functional.one_hot(d, num_classes=len(boundaries)).float()
         l = len(d.shape)
-        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cpu') #  [B, N_rigid, N_rigid, C_pair]
+        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cuda') #  [B, N_rigid, N_rigid, C_pair]
 
-        rigid_rigid_idx = torch.arange(0, 5).repeat(1, seq_len).reshape(-1).to('cpu') 
+        rigid_rigid_idx = torch.arange(0, 5).repeat(1, seq_len).reshape(-1).to('cuda') 
         rigid_edge = rigid_rigid_idx - rigid_rigid_idx[..., None]
-        rigid_edge = rigid_edge * mask.to('cpu')  + 5* reverse_mask.to('cpu')  + torch.abs(torch.min(rigid_edge))
+        rigid_edge = rigid_edge * mask.to('cuda')  + 5* reverse_mask.to('cuda')  + torch.abs(torch.min(rigid_edge))
         rigid_edge = nn.functional.one_hot(rigid_edge, num_classes=self.edge_type).float()
         rigid_edge = rigid_edge.unsqueeze(0).repeat(batch_size, *(1,) * len(rigid_edge.shape))
 
@@ -238,7 +238,7 @@ class InputEmbedder(nn.Module):
         expand_diffusion_mask[..., 0] = False
 
         # [batch, N_rigid, c_n/2]
-        expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cpu')
+        expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cuda')
         mask_time = torch.cat([torch.sin(expand_diffusion_mask), torch.cos(expand_diffusion_mask)], dim=-1)
         node_sigma = torch.log(sigma / sigma_min) / np.log(sigma_max / sigma_min) * 10000
         node_time = torch.tile(
@@ -260,7 +260,7 @@ class InputEmbedder(nn.Module):
         
         # add time encode
         node_emb = node_emb + node_time
-        node_emb = node_emb * (rigid_mask[..., None].to('cpu'))
+        node_emb = node_emb * (rigid_mask[..., None].to('cuda'))
 
         ################ Pair_feature ####################
 
@@ -447,7 +447,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, K]
         a = a + pt_att
-        a = a.to('cpu') + square_mask_e.unsqueeze(-3).to('cpu')
+        a = a.to('cuda') + square_mask_e.unsqueeze(-3).to('cuda')
         a = self.softmax(a)
 
         ################
@@ -656,7 +656,7 @@ class InvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, N_rigid]
         a = a + pt_att
-        a = a.to('cpu') + square_mask.unsqueeze(-3).to('cpu')
+        a = a.to('cuda') + square_mask.unsqueeze(-3).to('cuda')
         a = self.softmax(a)
 
         ################

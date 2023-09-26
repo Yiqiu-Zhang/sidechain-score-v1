@@ -54,7 +54,7 @@ class PairTransition(nn.Module):
 
         # [*, N_res, N_res, C_z]
         z = self.linear_2(z)
-        z = z * (mask.to('cpu'))
+        z = z * (mask.to('cuda'))
 
         return z
 

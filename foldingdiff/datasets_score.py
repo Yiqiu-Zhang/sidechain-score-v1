@@ -706,43 +706,6 @@ class CathSideChainAnglesDataset(Dataset):
         
         return structures
 
-    '''
-    def __compute_featurization(
-            self, fnames: Sequence[str]
-    ) -> List[Dict[str, np.ndarray]]:
-        """Get the featurization of the given fnames"""
-        pfunc = functools.partial(
-            canonical_distances_and_dihedrals,
-            distances=EXHAUSTIVE_DISTS,
-            angles=EXHAUSTIVE_ANGLES,
-        )
-        coords_pfunc = functools.partial(extract_backbone_coords, atoms=["CA"])
-
-        logging.info(
-            f"Computing full dataset of {len(fnames)} with {multiprocessing.cpu_count()} threads"
-        )
-        # Generate dihedral angles
-        pool = multiprocessing.Pool(processes=10)
-        struct_arrays = list(pool.map(pfunc, fnames, chunksize=250))
-        coord_arrays = list(pool.map(coords_pfunc, fnames, chunksize=250))
-        pool.close()
-        pool.join()
-
-        # Contains only non-null structures
-        structures = []
-        for fname, s, c in zip(fnames, struct_arrays, coord_arrays):
-            if s is None:
-                continue
-            structures.append(
-                {
-                    "angles": s,
-                    "coords": c,
-                    "fname": fname,
-                }
-            )
-        return structures
-    '''
-
     def sample_length(self, n: int = 1) -> Union[int, List[int]]:
         """
         Sample a observed length of a sequence

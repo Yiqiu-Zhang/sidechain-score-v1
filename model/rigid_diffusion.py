@@ -155,7 +155,7 @@ class InputEmbedder(nn.Module):
         d = torch.argmin(d, dim=-1)
         d = nn.functional.one_hot(d, num_classes=len(boundaries)).float()
         l = len(d.shape)
-        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cpu') #  [B, N_rigid, N_rigid, C_pair]
+        d = d.unsqueeze(0).repeat(batch_size,*(1,)*l).to('cuda') #  [B, N_rigid, N_rigid, C_pair]
         return d # [B, N_rigid, N_rigid, C_pair]
 
     def forward(self,
@@ -208,7 +208,7 @@ class InputEmbedder(nn.Module):
         node_emb =  self.pos_encoding(node_emb)
         
         node_emb = node_emb + node_time #增加了位置编码，sin cos
-        node_emb = node_emb * (rigid_mask[..., None].to('cpu'))
+        node_emb = node_emb * (rigid_mask[..., None].to('cuda'))
 
         ################ Pair_feature ####################
 
@@ -418,7 +418,7 @@ class InvariantPointAttention(nn.Module):
 
         # [*, H, N_rigid, N_rigid]
         a = a + pt_att
-        a = a.to('cpu') + square_mask.unsqueeze(-3).to('cpu')
+        a = a.to('cuda') + square_mask.unsqueeze(-3).to('cuda')
         a = self.softmax(a)
 
         ################

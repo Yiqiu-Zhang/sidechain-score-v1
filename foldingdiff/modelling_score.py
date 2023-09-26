@@ -512,7 +512,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         ture_rigid,_,_ = structure_build.torsion_to_frame(batch['angles'],
                                                           batch["seq"],
                                                           batch["coords"])
-        known_distance = invert_rot_mul_vec(rigids, ture_rigid.trans) # Then translated to noise rigid frame
+        known_distance = geometry.loc_invert_rot_mul_vec(rigids, ture_rigid.loc) # Then translated to noise rigid frame
         # , current_local_r
         predicted_score, sum_local_t = self.forward(rigids,
                                                     batch["seq"],  # [batch,128,4]

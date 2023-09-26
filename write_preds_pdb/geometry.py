@@ -301,11 +301,11 @@ def identity_trans(
 
 def Rigid_mult(rigid_1: Rigid,
                rigid_2: Rigid) -> Rigid:
-    rot1 = rigid_1.rot.get_rot_mat().to('cpu')
-    rot2 = rigid_2.rot.get_rot_mat().to('cpu')
+    rot1 = rigid_1.rot.get_rot_mat().to('cuda')
+    rot2 = rigid_2.rot.get_rot_mat().to('cuda')
 
     new_rot = rot_matmul(rot1, rot2)
-    new_trans = rot_vec(rot1, rigid_2.trans.to('cpu'))  + rigid_1.trans.to('cpu')
+    new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
     new_loc = rot_vec(rot1, rigid_2.loc) + rigid_1.trans
 
     return  Rigid(Rotation(new_rot), new_trans, new_loc)

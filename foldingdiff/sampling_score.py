@@ -42,7 +42,7 @@ def p_sample_loop_score(
                                                                  seq,
                                                                  coords)
 
-    sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cpu')
+    sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cuda')
     eps = 1 / steps
 
     # Create the attention mask
@@ -70,7 +70,7 @@ def p_sample_loop_score(
         '''
         g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min)))
         z = torch.normal(mean=0, std=1, size= score.shape)
-        perturb = g.to('cpu') ** 2 * eps * score + g.to('cpu') * np.sqrt(eps) * z.to('cpu')
+        perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
         rigids, current_local_r, all_frames_to_global = structure_build.torsion_to_frame(perturb,
                                                                                          seq,
                                                                                          coords,
