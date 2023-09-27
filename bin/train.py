@@ -172,11 +172,17 @@ def get_train_valid_test_sets(
     ]
 
     assert len(clean_dsets) == len(splits)
+    print("=========================================================")
+    # Set the training set mean to the validation set mean
+    if len(clean_dsets) > 1 and clean_dsets[0].means is not None:
+        logging.info(f"Updating valid/test mean offset to {clean_dsets[0].means}")
+        for i in range(1, len(clean_dsets)):
+            clean_dsets[i].means = clean_dsets[0].means
+
 
     dset_noiser_class = datasets.NoisedAnglesDataset
 
     logging.info(f"Using {dset_noiser_class} for noise")
-
     noised_dsets = [
         dset_noiser_class(
             dset=ds,
@@ -189,15 +195,15 @@ def get_train_valid_test_sets(
         )
         for i, ds in enumerate(clean_dsets)
     ]
-    for dsname, ds in zip(splits, clean_dsets):
+    for dsname, ds in zip(splits, noised_dsets):
         logging.info(f"{dsname}: {ds}")
 
     # Pad with None values
-    if len(clean_dsets) < 3:
-        clean_dsets = clean_dsets + [None] * int(3 - len(clean_dsets))
-    assert len(clean_dsets) == 3
+    if len(noised_dsets) < 3:
+        noised_dsets = noised_dsets + [None] * int(3 - len(noised_dsets))
+    assert len(noised_dsets) == 3
 
-    return tuple(clean_dsets)
+    return tuple(noised_dsets)
 
 
 def build_callbacks(

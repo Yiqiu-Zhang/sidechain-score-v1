@@ -270,6 +270,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     score = torus_score.score(known_noise, sigma_idx[...,None], chi_pi_periodic)
 
     score_norm = torus_score.score_norm(sigma_idx[...,None], chi_pi_periodic)
+    #score_norm = torus_score.score_norm(sigma_idx)
 
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
