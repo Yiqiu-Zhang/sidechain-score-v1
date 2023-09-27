@@ -487,7 +487,6 @@ class CathCanonicalAnglesDataset(Dataset):
         assert all_vals.ndim == 1
         return torch.var_mean(all_vals)[::-1]  # Default is (var, mean)
 
-#class CathSideChainDataset(CathCanonicalAnglesDataset):
 class CathSideChainAnglesDataset(Dataset):
     """
     Load in the dataset.
@@ -580,16 +579,17 @@ class CathSideChainAnglesDataset(Dataset):
         # Shuffle the sequences so contiguous splits acts like random splits
         self.rng.shuffle(self.structures)
         if split is not None:
-            split_idx = int(len(self.structures) * 0.8)
+            split_idx = int(len(self.structures) * 0.9)
             if split == "train":
                 self.structures = self.structures[:split_idx]
             elif split == "validation":
                 self.structures = self.structures[
                                   split_idx: split_idx + int(len(self.structures) * 0.1)
                                   ]
+            # we are using the FAKE testset here It is the SAME with our validset
             elif split == "test":
                 self.structures = self.structures[
-                                  split_idx + int(len(self.structures) * 0.1):
+                                  split_idx: split_idx + int(len(self.structures) * 0.1)
                                   ]
             else:
                 raise ValueError(f"Unknown split: {split}")
@@ -615,13 +615,6 @@ class CathSideChainAnglesDataset(Dataset):
         logging.info(
             f"Length of angles: {np.min(self.all_lengths)}-{np.max(self.all_lengths)}, mean {np.mean(self.all_lengths)}"
         )
-
-        # for ft in self.feature_names["angles"]:
-        #     idx = self.feature_names["angles"].index(ft)
-        #     is_angular = self.feature_is_angular["angles"][idx]
-        #     logging.info(f"Feature {ft} is angular: {is_angular}")
-        #     m, v = self.get_feature_mean_var(ft)
-        #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
 
     def __get_pdb_fnames(
             self, pdbs: Union[Literal["cath", "alphafold"], str]
@@ -838,9 +831,8 @@ class CathSideChainAnglesDataset(Dataset):
         # Create position IDs
         position_ids = torch.arange(start=0, end=self.pad, step=1, dtype=torch.long)
 
-        angular_idx = np.where(CathSideChainAnglesDataset.feature_is_angular["angles"])[
-            0
-        ]
+        angular_idx = np.where(CathSideChainAnglesDataset.feature_is_angular["angles"])[0]
+
         assert utils.tolerant_comparison_check(
             angles[:, angular_idx], ">=", -np.pi
         ), f"Illegal value: {np.min(angles[:, angular_idx])}"

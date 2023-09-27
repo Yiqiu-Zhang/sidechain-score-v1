@@ -493,7 +493,25 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         self.write_preds_counter = 0
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
-  
+
+    def get_noised_angle(self,
+                         angles,
+                         sigma_min=0.01 * np.pi,
+                         sigma_max=np.pi,
+                         ):
+        sigma = np.exp(np.random.uniform(low=np.log(sigma_min), high=np.log(sigma_max)))
+        sigma = torch.tensor(sigma,
+                             device=angles.deivce)
+
+        # Noise is sampled within range of [-pi, pi], and optionally
+        noise = torch.normal(0,
+                             sigma,
+                             size=angles.shape,
+                             device=angles.deivce)
+
+        noised_vals = angles + noise
+        return  noised_vals, noise, sigma
+
     def _get_loss_terms_grad(self,
                              batch: torch.Tensor,
                              ) -> torch.Tensor:
@@ -502,10 +520,11 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
            is equivalent to the number of features we are fitting to.
         """
 
-        # [*, N_res] Rigid
+
+        corrupted_angle, known_noise, sigma = self.get_noised_angle(batch['angles'])
 
         # [*, N_rigid] Rigid
-        rigids, _, _ = structure_build.torsion_to_frame(batch['corrupted'],
+        rigids, _, _ = structure_build.torsion_to_frame(corrupted_angle,
                                                         batch["seq"],
                                                         batch["coords"])
 
@@ -517,7 +536,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         predicted_score, sum_local_t = self.forward(rigids,
                                                     batch["seq"],  # [batch,128,4]
                                                     #diffusion_mask,  # [batch,128,1]
-                                                    batch["t"],
+                                                    sigma,
                                                     batch["acid_embedding"],  # [batch,128,1024]
                                                     batch['rigid_type_onehot'],  # [batch,128,5,19] x_rigid_type[-1]=one hot
                                                     batch['rigid_property'],  # [batch,128,5,6]
@@ -529,7 +548,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         loss = loss_fn(
             predicted_score,
             sum_local_t,
-            batch["known_noise"],
+            known_noise,
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number
             known_distance,
