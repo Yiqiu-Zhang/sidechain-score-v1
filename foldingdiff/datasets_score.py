@@ -208,7 +208,7 @@ class CathCanonicalAnglesDataset(Dataset):
         # Shuffle the sequences so contiguous splits acts like random splits
         self.rng.shuffle(self.structures)
         if split is not None:
-            split_idx = int(len(self.structures) * 0.8)
+            split_idx = int(len(self.structures) * 0.9)
             if split == "train":
                 self.structures = self.structures[:split_idx]
             elif split == "validation":
@@ -217,7 +217,7 @@ class CathCanonicalAnglesDataset(Dataset):
                 ]
             elif split == "test":
                 self.structures = self.structures[
-                    split_idx + int(len(self.structures) * 0.1) :
+                    split_idx : split_idx + int(len(self.structures) * 0.1)
                 ]
             else:
                 raise ValueError(f"Unknown split: {split}")
