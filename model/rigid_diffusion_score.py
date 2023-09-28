@@ -10,7 +10,7 @@ import numpy as np
 
 import math
 from torch.autograd import Variable
-from write_preds_pdb import structure_build_score
+from write_preds_pdb import structure_build_score, constant
 from write_preds_pdb.geometry import Rigid, loc_rigid_mul_vec, loc_invert_rot_mul_vec, Rotation, Rigid_update_trans
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
@@ -885,7 +885,7 @@ class StructureUpdateModule(nn.Module):
                                         no_rigids,
                                         epsilon)
         '''
-        self.rigid_update = RigidUpdate(c_n)
+        #self.rigid_update = RigidUpdate(c_n)
 
         self.edge_transition = EdgeTransition(c_n,
                                               c_z,
@@ -914,11 +914,13 @@ class StructureUpdateModule(nn.Module):
 
             pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
 
+            '''
             # local translate update
             local_trans = self.rigid_update(node_emb)
             modified_local_trans = local_trans * modified_rigid_mask[...,None]
             rigids = Rigid_update_trans(rigids, modified_local_trans)
-
+            sum_local_trans += local_trans
+            '''
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
 
             # updated_chi_angles = torch.where(diffusion_mask[...,None], updated_chi_angles, ture_angles_sin_cos)
@@ -931,9 +933,8 @@ class StructureUpdateModule(nn.Module):
 
             
             # rigids = rigids * rigid_mask
-            sum_local_trans += local_trans
 
-        return node_emb, sum_local_trans
+        return node_emb
 
 class StructureBlock(nn.Module):
     def __init__(self,
@@ -1026,10 +1027,14 @@ class RigidDiffusion(nn.Module):
                  no_rigids: int = 5, # number of rigids to concate togather
                  epsilon: int = 1e-7,
                  top_k: int =64,
+
+                 # Arc config
+                 all_loc = False,
                  ):
 
         super(RigidDiffusion, self).__init__()
 
+        self.all_loc = all_loc
         self.num_blocks = num_blocks
         self.top_k = top_k
 
@@ -1064,6 +1069,7 @@ class RigidDiffusion(nn.Module):
                                                   epsilon
         )
         '''
+        self.rigid_update = RigidUpdate(c_n)
 
         # 预测8个 sin cos  改为预测4个角度
         self.score_predictor = AngleScore(c_n,
@@ -1112,7 +1118,7 @@ class RigidDiffusion(nn.Module):
                                                 sigma)
           
         # [B, N_rigid, c_n/3]      
-        node_emb, sum_local_t= self.structure_update(init_node_emb,
+        node_emb= self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
                                          rigid_mask,
@@ -1125,10 +1131,10 @@ class RigidDiffusion(nn.Module):
 
         # [B, N_rigid, c_n] -->  [B, N_res,4]    
         score = self.score_predictor(node_emb, init_node_emb)
-
+        local_trans = self.rigid_update(node_emb)
         #transed_local_r = self.trans_update(node_emb, local_r)
 
         # [B, N_res,4],  [B, N_rigid, 3] 
-        return score, sum_local_t
+        return score, local_trans
 
 

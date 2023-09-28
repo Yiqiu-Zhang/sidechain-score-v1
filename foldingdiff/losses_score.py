@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from foldingdiff import utils
 
 from write_preds_pdb import constant, torus_score, geometry
+from write_preds_pdb import structure_build_score as structure_build
 
 SIGMA_MIN= torch.tensor(3e-3)
 SIGMA_MAX = torch.tensor(2)
@@ -162,7 +163,7 @@ def pairwise_dist_loss(
 
 #=======================================new loss=========================================
 def mask_mean(mask, value, dim, eps=1e-4):
-    assert mask.shape == value.shape, 'mask shape not same with angles shape'
+    assert mask.shape == value.shape, f'mask shape not same with angles shape{mask.shape}{value.shape}'
     return torch.sum(mask * value, dim=dim) / (eps + torch.sum(mask, dim=dim))
 #=======================================new loss=========================================
 
@@ -241,13 +242,17 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
                known_noise: torch.Tensor, # [B,N,4]
                sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
-               known_distance,
+               angles,
+               coords,
+               rigids,
                mask: torch.Tensor, # [B,N,4]
                eps: float = 1e-4,
                clamp_distance: float = 2,
                length_scale: float = 2,
+               all_loc: bool = False
                ):
-
+    
+    
     sigma = sigma.unsqueeze(1)
     assert len(sigma.shape) == 2
 
@@ -260,7 +265,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
 
     # [B, L, 4]
     chi_pi_periodic = torch.einsum(
-        "...ij,jk->ik",
+        "...ij,jk->...ik",
         residue_type_one_hot.type(predicted_score.dtype),
         predicted_score.new_tensor(constant.chi_pi_periodic), # [21, 4]
     ).to(torch.bool).to(known_noise.device)
@@ -275,16 +280,50 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-1, -2, -3))
+    
+    angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
+    # [B, N_rigid]
+    ture_rigid,_,_ = structure_build.torsion_to_frame(angles_sin_cos,
+                                                    seq,
+                                                    coords)
+    # [B,N,4,1]
+    shifted_mask = (1 - 2 * chi_pi_periodic).unsqueeze(-1)
+    alt_sin_cos = shifted_mask * angles_sin_cos # 对称的角度，sin cos 全部变为 -sin -cos
+    alt_rigid,_,_ = structure_build.torsion_to_frame(alt_sin_cos,
+                                                    seq,
+                                                    coords)
+    # [B, N_rigid,3]
+    known_distance = geometry.loc_invert_rot_mul_vec(rigids, ture_rigid.loc) # Then translated to noise rigid frame
+    alt_distance =  geometry.loc_invert_rot_mul_vec(rigids, alt_rigid.loc)
 
+    B, N_rigid = rigids.shape
+
+    if all_loc:
+        # [B, N_res, 5]
+        modified_rigid_mask = torch.ones((B,int(N_rigid/5),5),device=predicted_score.device)
+        modified_rigid_mask[...,0] = 0.
+        modified_rigid_mask[...,1:] =  modified_rigid_mask[...,1:] * mask
+
+
+    else:
+
+        # [B, N_res, 5]
+        modified_rigid_mask = torch.einsum(
+            "...ij,jk->...ik",
+            residue_type_one_hot.type(predicted_score.dtype),
+            predicted_score.new_tensor(constant.end_rigid), # [21, 5]
+        )
+        
     # [B, N_rigid, 3]
     d_error = torch.sqrt(torch.sum((known_distance - sum_local_t) ** 2, dim=-1) + eps)
+    alt_d_error = torch.sqrt(torch.sum((alt_distance - sum_local_t) ** 2, dim=-1) + eps)
+    d_error =  torch.minimum(d_error, alt_d_error) 
     d_error = torch.clamp(d_error, min=0, max=clamp_distance)
 
     norm_d_error  = d_error/ length_scale
-    # [B, N_rigid]
+    # [B, N_res,5]
     norm_d_error = norm_d_error.reshape(norm_d_error.shape[0],-1, 5)
-    trans_mask = F.pad(mask,(1,0), "constant", 1)
-    trans_loss = mask_mean(trans_mask, norm_d_error, dim=(-1,-2, -3))
+    trans_loss = mask_mean(modified_rigid_mask, norm_d_error, dim=(-1,-2, -3))
 
     return loss + 0.5*trans_loss
 #=======================================new loss=========================================

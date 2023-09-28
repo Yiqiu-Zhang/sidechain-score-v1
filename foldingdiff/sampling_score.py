@@ -38,7 +38,11 @@ def p_sample_loop_score(
         steps=100,
 ):
     # [*, N_rigid] Rigid
-    rigids, current_local_r,_ = structure_build.torsion_to_frame(corrupted_angles,
+    corrupted_sin_cos = torch.stack(
+        [torch.sin(corrupted_angles), torch.cos(corrupted_angles)], 
+        dim=-1)
+
+    rigids, current_local_r,_ = structure_build.torsion_to_frame(corrupted_sin_cos,
                                                                  seq,
                                                                  coords)
 
@@ -71,7 +75,9 @@ def p_sample_loop_score(
         g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min)))
         z = torch.normal(mean=0, std=1, size= score.shape)
         perturb = g.to('cuda') ** 2 * eps * score + g.to('cuda') * np.sqrt(eps) * z.to('cuda')
-        rigids, current_local_r, all_frames_to_global = structure_build.torsion_to_frame(perturb,
+
+        perturb_sin_cos = torch.stack([torch.sin(perturb), torch.cos(perturb)], dim=-1)
+        rigids, current_local_r, all_frames_to_global = structure_build.torsion_to_frame(perturb_sin_cos,
                                                                                          seq,
                                                                                          coords,
                                                                                          current_local_r)

@@ -48,13 +48,8 @@ def rotate_sidechain(
     all_rots[..., 2, 1] = sin_angles
     all_rots[..., 2, 2] = cos_angles
 
-    # print("all_rots==",all_rots.shape) # torch.Size([128, 8, 3, 3])
-    # print('Rotation =========',geometry.Rotation(rot_mats = all_rots).shape)
     all_rots = geometry.Rigid(geometry.Rotation(rot_mats=all_rots), None, None)
 
-    # print("final all_rots==",all_rots.shape) #torch.Size([128])
-
-    # print("default_r==",default_r.shape) #torch.Size([128, 8])
     all_frames = geometry.Rigid_mult(last_local_r, all_rots)
 
     # Rigid
@@ -250,7 +245,7 @@ def get_default_r(restype_idx):
     return default_r
 
 
-def torsion_to_frame(angles,
+def torsion_to_frame(angles_sin_cos,
                      aatype_idx: torch.Tensor,  # [*, N]
                      bb_coord: geometry.Rigid,  # [*, N_rigid]
                      last_step_r = None
@@ -270,7 +265,6 @@ def torsion_to_frame(angles,
     # side chain frames [*, N, 5] Rigid
     # We create 3 dummy identity matrix for omega and other angles which is not used in the frame attention process
 
-    angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
     #if not given the local frame, use the initial default frame
     if not last_step_r:
         last_step_r = get_default_r(aatype_idx)
@@ -298,7 +292,7 @@ def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
 
     """
 
-    # [20, 5]
+    # [21, 5]
     restype_frame5_mask = torch.tensor(restype_frame_mask)
 
     # [*, N_res, 5]

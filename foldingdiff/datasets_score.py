@@ -30,6 +30,7 @@ LOCAL_DATA_DIR = Path(
 
 CATH_DIR = LOCAL_DATA_DIR / "cath"
 ALPHAFOLD_DIR = LOCAL_DATA_DIR / "alphafold"
+BC40_DIR = LOCAL_DATA_DIR / "bc40"
 
 
 from foldingdiff import beta_schedules
@@ -252,7 +253,7 @@ class CathCanonicalAnglesDataset(Dataset):
         #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
 
     def __get_pdb_fnames(
-        self, pdbs: Union[Literal["cath", "alphafold"], str]
+        self, pdbs: Union[Literal["cath", "alphafold",'bc40'], str]
     ) -> List[str]:
         """Return a list of filenames for PDB structures making up this dataset"""
         if Path(pdbs).is_dir():
@@ -268,6 +269,9 @@ class CathCanonicalAnglesDataset(Dataset):
             elif pdbs == "alphafold":
                 fnames = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
                 assert fnames, f"No files found in {ALPHAFOLD_DIR}"
+            elif pdbs == "bc40":
+                fnames = glob.glob(os.path.join(BC40_DIR, "dompdb", "*"))
+                assert fnames, f"No files found in {BC40_DIR}/dompdb"
             else:
                 raise ValueError(f"Unknown pdb set: {pdbs}")
 
@@ -512,11 +516,11 @@ class CathSideChainAnglesDataset(Dataset):
     def __init__(
             self,
             pdbs: Union[
-                Literal["cath", "alphafold"], str
+                Literal["cath", "alphafold","bc40"], str
             ] = "cath",  # Keyword or a directory
             split: Optional[Literal["train", "test", "validation"]] = None,
             pad: int = 128,
-            min_length: int = 40,  # Set to 0 to disable
+            min_length: int = 0,  # Set to 0 to disable
             trim_strategy: TRIM_STRATEGIES = "leftalign",
             toy: int = 0,
             zero_center: bool = True,  # Center the features to have 0 mean
@@ -545,8 +549,8 @@ class CathSideChainAnglesDataset(Dataset):
         with open(full_data_name, "wb") as file:
             pickle.dump(self.structures, file)
         print('=========================== Warpping Data_START Finish======================')
-        '''
         
+        '''
         
         with open(full_data_name, "rb") as file:
             logging.info(f"Loading cached full dataset from {full_data_name}")
@@ -580,7 +584,7 @@ class CathSideChainAnglesDataset(Dataset):
         # Shuffle the sequences so contiguous splits acts like random splits
         self.rng.shuffle(self.structures)
         if split is not None:
-            split_idx = int(len(self.structures) * 0.8)
+            split_idx = int(len(self.structures) * 0.9)
             if split == "train":
                 self.structures = self.structures[:split_idx]
             elif split == "validation":
@@ -589,7 +593,7 @@ class CathSideChainAnglesDataset(Dataset):
                                   ]
             elif split == "test":
                 self.structures = self.structures[
-                                  split_idx + int(len(self.structures) * 0.1):
+                                  split_idx: split_idx + int(len(self.structures) * 0.1)
                                   ]
             else:
                 raise ValueError(f"Unknown split: {split}")
@@ -624,7 +628,7 @@ class CathSideChainAnglesDataset(Dataset):
         #     logging.info(f"Feature {ft} mean, var: {m}, {v}")
 
     def __get_pdb_fnames(
-            self, pdbs: Union[Literal["cath", "alphafold"], str]
+        self, pdbs: Union[Literal["cath", "alphafold",'bc40'], str]
     ) -> List[str]:
         """Return a list of filenames for PDB structures making up this dataset"""
         if Path(pdbs).is_dir():
@@ -640,6 +644,9 @@ class CathSideChainAnglesDataset(Dataset):
             elif pdbs == "alphafold":
                 fnames = glob.glob(os.path.join(ALPHAFOLD_DIR, "*.pdb.gz"))
                 assert fnames, f"No files found in {ALPHAFOLD_DIR}"
+            elif pdbs == "bc40":
+                fnames = glob.glob(os.path.join(BC40_DIR, "dompdb", "*"))
+                assert fnames, f"No files found in {BC40_DIR}/dompdb"
             else:
                 raise ValueError(f"Unknown pdb set: {pdbs}")
 
@@ -663,31 +670,7 @@ class CathSideChainAnglesDataset(Dataset):
             self.cache_dir, f"esm3B_cache_canonical_structures_{k}_{filename_hash}.pkl"
         )
 
-    def __clean_mismatched_caches(self) -> None:
-        """Clean out mismatched cache files"""
-        if os.path.isdir(self.pdbs_src):
-            k = os.path.basename(self.pdbs_src)
-        else:
-            k = self.pdbs_src
 
-        matches = glob.glob(os.path.join(self.cache_dir, f"cache_canonical_structures_{k}_*.pkl"))
-        if not matches:
-            logging.info(f"No cache files found matching {matches}, no cleaning necessary")
-        for fname in matches:
-            if fname != self.cache_fname:
-                logging.info(f"Removing old cache file {fname}")
-                os.remove(fname)
-
-    def __compute_rigid_distance_pdb(self, fnames: Sequence[str]):
-
-        rigid_distance = []
-        pool = multiprocessing.Pool(processes=10)
-        rigid_distance = list(pool.map(rigid_distance_pdb,fnames, chunksize=100))
-        pool.close()
-        pool.join()
-     
-        return rigid_distance
-    
     def __compute_featurization_sidechain(self, fnames: Sequence[str]):
 
         structures = []

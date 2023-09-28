@@ -20,7 +20,6 @@ def add_esm1b_embedding(structures_no_embedding,batch_size):
     batches = [sequence_list[i*batch_size:(i+1)*batch_size] for i in range(num_batches)]
     
     for k, batch in enumerate(batches):
-        print("=======================num_batch=================",k)
         _, _, batch_tokens = batch_converter(batch)
         with torch.no_grad():
              results = model(batch_tokens, repr_layers=[6], return_contacts=True)
@@ -30,16 +29,12 @@ def add_esm1b_embedding(structures_no_embedding,batch_size):
             sequence_acid_embedding.append(acid_representations)
 
     j = 0
-    #print("=======================sequence_acid_embedding len=================",len(sequence_acid_embedding))
-    #print("=======================sequence_acid_embedding[0] shape=================",sequence_acid_embedding[0].shape)
+  
     for structure in structures: 
         structure.update({'acid_embedding':sequence_acid_embedding[j]})
         j = j + 1
         del structure['seq_temp']
-    #print("===========structures len===============",len(structures))
-    #print("===========structures key===============",structures[0].keys())
-    #print("===========structures len===============",structures[0]['seq'].shape)
-    #print("===========structures len===============",structures[0]['acid_embedding'].shape)
+
     return structures
         
         

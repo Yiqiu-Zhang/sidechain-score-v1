@@ -264,12 +264,14 @@ class AngleDiffusionBase(nn.Module):
         d_ff: int = 1024, #hidden layer dim
         d_angles:int = 4,
         max_seq_len: int = 5000,
-        dropout: float = 0.1
+        dropout: float = 0.1,
+        pred_all: bool = False,
     ) -> None:
         """
         dim should be the dimension of the inputs
         """
         super().__init__()  
+        self.pred_all = pred_all
         self.config = config
         self.ft_is_angular = ft_is_angular
         n_inputs = len(ft_is_angular)
@@ -401,20 +403,8 @@ class AngleDiffusionBase(nn.Module):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
-        #input_shape = corrupted_angles.size()
-       # batch_size, seq_length, *_ = input_shape
-    #    logging.debug(f"Detected batch {batch_size} and seq length {seq_length}")
 
-       
-        #assert len(corrupted_angles.shape) == 3  # batch_size, seq_length, features
-
-                #diffusion_mask = torch.rand(angles.shape[:-1]) < self.diffusion_fraction
-        #diffusion_mask = diffusion_mask[..., None]
-        #corrupted_angles = torch.where(diffusion_mask, batch["corrupted"], batch["angles"])
-
-        #, trans
         score, sum_local_t = self.encoder(rigids,
-                            #local_r,
                             seq_idx,
                             timestep,
                             x_seq_esm,
@@ -505,16 +495,14 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         # [*, N_res] Rigid
 
         # [*, N_rigid] Rigid
-        rigids, _, _ = structure_build.torsion_to_frame(batch['corrupted'],
+        corrupted_sin_cos = torch.stack(
+            [torch.sin(batch['corrupted']), torch.cos(batch['corrupted'])], 
+            dim=-1)
+        rigids, _, _ = structure_build.torsion_to_frame(corrupted_sin_cos,
                                                         batch["seq"],
                                                         batch["coords"])
 
-        ture_rigid,_,_ = structure_build.torsion_to_frame(batch['angles'],
-                                                          batch["seq"],
-                                                          batch["coords"])
 
-        known_distance = geometry.loc_invert_rot_mul_vec(rigids, ture_rigid.loc) # Then translated to noise rigid frame
-        # , current_local_r
         predicted_score, sum_local_t = self.forward(rigids,
                                                     batch["seq"],  # [batch,128,4]
                                                     #diffusion_mask,  # [batch,128,1]
@@ -533,8 +521,11 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number
-            known_distance,
-            batch['chi_mask'],  # [b,L,4]  Padded in chi_mask so no need to use padding mask
+            batch['angles'],
+            batch["coords"],
+            rigids,
+            batch['chi_mask'],
+            all_loc = self.pred_all    # [b,L,4]  Padded in chi_mask so no need to use padding mask
         )
 
         return loss

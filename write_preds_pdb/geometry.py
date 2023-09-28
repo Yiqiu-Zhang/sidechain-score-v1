@@ -306,7 +306,7 @@ def Rigid_mult(rigid_1: Rigid,
 
     new_rot = rot_matmul(rot1, rot2)
     new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
-    new_loc = rot_vec(rot1, rigid_2.loc) + rigid_1.trans
+    new_loc = rot_vec(rot1, rigid_2.loc.to('cuda')) + rigid_1.trans.to('cuda')
 
     return  Rigid(Rotation(new_rot), new_trans, new_loc)
 
@@ -470,8 +470,8 @@ def map_rigid_fn(rigid: Rigid):
     new_trans = torch.stack(list(map(
         lambda x: torch.sum(x, dim=-1), torch.unbind(rigid.trans, dim=-1)
     )), dim=-1)
-
-    return Rigid(Rotation(rot_mats=rot_mat), new_trans)
+    fake_loc = torch.zeros(new_trans.shape)
+    return Rigid(Rotation(rot_mats=rot_mat), new_trans, fake_loc)
 
 def get_gb_trans(bb_pos: torch.Tensor) -> Rigid: # [*,128,4,3]
 
