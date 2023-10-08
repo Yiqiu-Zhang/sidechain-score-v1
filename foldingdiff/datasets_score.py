@@ -540,14 +540,14 @@ class CathSideChainAnglesDataset(Dataset):
 
         # self.structures should be a list of dicts with keys (angles, coords, fname)
         # Define as None by default; allow for easy checking later
-        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/foldingdiff_data.pkl'
+        full_data_name='/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data.pkl'
         '''
         print('=========================== Warping Data_START======================')
         self.structures = self.__compute_featurization_sidechain(fnames)
 
-        # logging.info(f"Saving full dataset to cache at {full_data_name}")
         with open(full_data_name, "wb") as file:
             pickle.dump(self.structures, file)
+
         print('=========================== Warpping Data_START Finish======================')
         
         '''
@@ -685,7 +685,7 @@ class CathSideChainAnglesDataset(Dataset):
         pool.join()
         '''
         print('finish building structures start to add esm')
-        structures = add_esm1b_embedding(structures,32)
+        structures = add_esm1b_embedding(structures,8)
         
         return structures
 
