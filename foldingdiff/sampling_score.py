@@ -60,7 +60,7 @@ def p_sample_loop_score(
 
         sigma = torch.unsqueeze(sigma, 0)
         # , current_r
-        score, _= model(rigids,
+        score = model(rigids, #, _
                     seq,
                     sigma,
                     acid_embedding,

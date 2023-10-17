@@ -404,7 +404,7 @@ class AngleDiffusionBase(nn.Module):
         return_dict: Optional[bool] = None,
     ):
 
-        score, sum_local_t = self.encoder(rigids,
+        score = self.encoder(rigids, #, local_trans
                             seq_idx,
                             timestep,
                             x_seq_esm,
@@ -413,7 +413,7 @@ class AngleDiffusionBase(nn.Module):
                             pad_mask,
         )
 
-        return score, sum_local_t
+        return score#, local_trans
 
 class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
     """
@@ -503,7 +503,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
                                                         batch["coords"])
 
 
-        predicted_score, sum_local_t = self.forward(rigids,
+        predicted_score = self.forward(rigids, #, local_trans
                                                     batch["seq"],  # [batch,128,4]
                                                     #diffusion_mask,  # [batch,128,1]
                                                     batch["t"],
@@ -517,7 +517,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         loss = loss_fn(
             predicted_score,
-            sum_local_t,
+            #local_trans,
             batch["known_noise"],
             batch["t"], # sigma
             batch['seq'],  # [b,L] restpyes in number

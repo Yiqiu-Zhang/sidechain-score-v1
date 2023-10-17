@@ -300,7 +300,7 @@ def train(
     # Controls output
     results_dir: str = "./results",
     # Controls data loading and noising process
-    dataset_key: str = "cath",  # cath, alhpafold, or a directory containing pdb files
+    dataset_key: str = "bc40",  # cath, alhpafold, or a directory containing pdb files
     angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
     max_seq_len: int = 128,
     min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
@@ -346,6 +346,8 @@ def train(
     ngpu: int = -1,  # -1 for all GPUs
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
     dryrun: bool = False,  # Disable some frills for a fast run to just train
+    pred_all: bool = False,
+
   #  num_encoder_layers: int = 1,
 ):
     """Main training loop"""
@@ -450,6 +452,7 @@ def train(
     model = modelling.AngleDiffusion(
         config=cfg,
         time_encoding=time_encoding,
+        pred_all = pred_all,
         #decoder=decoder,
         ft_is_angular=dsets[0].dset.feature_is_angular[ft_key],
         ft_names=dsets[0].dset.feature_names[ft_key],

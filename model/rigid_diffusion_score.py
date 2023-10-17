@@ -261,7 +261,7 @@ class InputEmbedder(nn.Module):
 
         ################ Pair_feature ####################
 
-        # [batch, N_rigid, N_rigid, C_x] C_x = 23?
+        # [batch, N_rigid, K, C_x] C_x = 23?
         distance_e = gather_edges(distance[...,None], E_idx).squeeze(-1)
         distance_rbf = rbf(distance_e)
 
@@ -274,12 +274,11 @@ class InputEmbedder(nn.Module):
                                      torch.tile(node_feature[:, None, :, :], (1, n_rigid, 1, 1))], axis = -1)
         nf_pair_feature = gather_edges(nf_pair_feature, E_idx)
 
-        # [*, N_rigid, N_rigid, c_z]
+        # [*, N_rigid, K, c_z]
         d = self.relpos(seq_len, batch_size)
         relative_pos = gather_edges(d, E_idx)
 
-        # [*, N_rigid, N_rigid, c_z] = [*, N_rigid, N_rigid, c_z]+ [*, N_rigid, 1, c_z] + [*, 1, N_rigid, c_z]
-
+        # [*, N_rigid, K]
         pair_mask_e = gather_edges(pair_mask.unsqueeze(-1), E_idx).squeeze(-1)
 
         pair_feature = torch.cat([distance_rbf, 
@@ -1069,7 +1068,7 @@ class RigidDiffusion(nn.Module):
                                                   epsilon
         )
         '''
-        self.rigid_update = RigidUpdate(c_n)
+        #self.rigid_update = RigidUpdate(c_n)
 
         # 预测8个 sin cos  改为预测4个角度
         self.score_predictor = AngleScore(c_n,
@@ -1131,10 +1130,10 @@ class RigidDiffusion(nn.Module):
 
         # [B, N_rigid, c_n] -->  [B, N_res,4]    
         score = self.score_predictor(node_emb, init_node_emb)
-        local_trans = self.rigid_update(node_emb)
+        #local_trans = self.rigid_update(node_emb)
         #transed_local_r = self.trans_update(node_emb, local_r)
 
         # [B, N_res,4],  [B, N_rigid, 3] 
-        return score, local_trans
+        return score#, local_trans
 
 

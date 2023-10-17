@@ -238,7 +238,7 @@ def square_chi_loss_with_periodic(
     return sq_chi_loss + angle_norm_weight * angle_norm_loss
 
 def score_loss(predicted_score: torch.Tensor, # [B,N,4]
-               sum_local_t: torch.Tensor, # [B,N,3]
+               #local_trans: torch.Tensor, # [B,N,3]
                known_noise: torch.Tensor, # [B,N,4]
                sigma: torch.Tensor, # sigma [B]
                seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
@@ -280,7 +280,7 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     loss = mask_mean(mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-1, -2, -3))
-    
+    '''
     angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
     # [B, N_rigid]
     ture_rigid,_,_ = structure_build.torsion_to_frame(angles_sin_cos,
@@ -324,8 +324,9 @@ def score_loss(predicted_score: torch.Tensor, # [B,N,4]
     # [B, N_res,5]
     norm_d_error = norm_d_error.reshape(norm_d_error.shape[0],-1, 5)
     trans_loss = mask_mean(modified_rigid_mask, norm_d_error, dim=(-1,-2, -3))
+    '''
 
-    return loss + 0.5*trans_loss
+    return loss #+ 0.5*trans_loss
 #=======================================new loss=========================================
 
 def main():
