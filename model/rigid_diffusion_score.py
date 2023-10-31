@@ -238,8 +238,7 @@ class InputEmbedder(nn.Module):
         expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cuda')
         mask_time = torch.cat([torch.sin(expand_diffusion_mask), torch.cos(expand_diffusion_mask)], dim=-1)
         node_sigma = torch.log(sigma / sigma_min) / np.log(sigma_max / sigma_min) * 10000
-        node_time = torch.tile(
-            get_timestep_embedding(node_sigma, self.c_n)[:, None, :], (1, n_rigid, 1))
+        node_time = torch.tile(get_timestep_embedding(node_sigma, self.c_n)[:, None, :], (1, n_rigid, 1))
         node_time = torch.where(expand_diffusion_mask.repeat(1,1,2), node_time, mask_time)
 
 

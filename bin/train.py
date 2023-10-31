@@ -8,7 +8,7 @@ sbatch -p bio_s1 --ntasks-per-node=1 --cpus-per-task=10 --gres=gpu:1  sample_8.7
 sbatch -p bio_s1 --ntasks-per-node=1 --cpus-per-task=64 --gres=gpu:7  IPA_Score_8.3.sh 
 export http_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
 export https_proxy="http://zhangyiqiu:Wzdhxzh5bn2023@10.1.8.50:33128"
-swatch  -n  SH-IDC1-10-140-1-163  nv
+swatch  -n  SH-IDC1-10-140-1-157  nv
 请问如何查看之前完成的任务，用什么命令。 sacct -u  ad账号
 """
 
@@ -206,55 +206,25 @@ def get_train_valid_test_sets(
     return tuple(noised_dsets)
 
 
-def build_callbacks(
-    outdir: str, early_stop_patience: Optional[int] = None, swa: bool = False
-):
+def build_callbacks(outdir: str):
     """
     Build out the callbacks
     """
     # Create the logging dir
     os.makedirs(os.path.join(outdir, "logs/lightning_logs"), exist_ok=True)
     os.makedirs(os.path.join(outdir, "models/best_by_valid"), exist_ok=True)
-    os.makedirs(os.path.join(outdir, "models/best_by_train"), exist_ok=True)
-    os.makedirs(os.path.join(outdir, "models/best_by_valid_average"), exist_ok=True)
 
-    callbacks = [
-        pl.callbacks.ModelCheckpoint(
-            monitor="val_loss",
-            dirpath=os.path.join(outdir, "models/best_by_valid"),
-            save_top_k=5,
-            save_weights_only=False,
-            mode="min",
-        ),
-        pl.callbacks.ModelCheckpoint(
-            monitor="train_loss",
-            dirpath=os.path.join(outdir, "models/best_by_train"),
-            save_top_k=5,
-            save_weights_only=False,
-            mode="min",
-        ),
-        pl.callbacks.ModelCheckpoint(
-            monitor="mean_loss",
-            dirpath=os.path.join(outdir, "models/best_by_valid_average"),
-            save_top_k=5,
-            save_weights_only=False,
-            mode="min",
-        ),
-        pl.callbacks.LearningRateMonitor(logging_interval="epoch"),
-    ]
-    if early_stop_patience is not None and early_stop_patience > 0:
-        logging.info(f"Using early stopping with patience {early_stop_patience}")
-        callbacks.append(
-            pl.callbacks.early_stopping.EarlyStopping(
-                monitor="val_loss",
-                patience=early_stop_patience,
-                verbose=True,
-                mode="min",
-            )
-        )
-    if swa:
-        # Stochastic weight averaging
-        callbacks.append(pl.callbacks.StochasticWeightAveraging())
+    callbacks = [pl.callbacks.ModelCheckpoint(
+                    monitor="val_loss",
+                    dirpath=os.path.join(outdir, "models/best_by_valid"),
+                    filename='sample-mnist-{epoch:02d}-{val_loss:.4f}',
+                    save_top_k=1,
+                    save_weights_only=False,
+                    mode="min",
+                    save_on_train_epoch_end = False,
+                    save_last=True,
+                )]
+
     logging.info(f"Model callbacks: {callbacks}")
     return callbacks
 
@@ -476,9 +446,7 @@ def train(
     )
     cfg.save_pretrained(results_folder)
 
-    callbacks = build_callbacks(
-        outdir=results_folder, early_stop_patience=early_stop_patience, swa=use_swa
-    )
+    callbacks = build_callbacks(outdir=results_folder)
 
     # Get accelerator and distributed strategy
     accelerator, strategy = "cpu", None
@@ -506,7 +474,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=min(50, len(train_dataloader)),  # Log >= once per epoch
+        log_every_n_steps=len(train_dataloader),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
         gpus=ngpu,
@@ -540,7 +508,7 @@ def train(
         model=model,
         train_dataloaders=train_dataloader,
         val_dataloaders=valid_dataloader,
-        #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/result_K16_deep/models/best_by_valid/epoch=150-step=51944.ckpt'
+        #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/result_122_crossIPA copy/models/best_by_valid/sample-mnist-epoch=226-mean_loss=0.541.ckpt'
     )
    # profiler_results = profiler.profile
    # summary = profiler_resultskey_averages().table(sort_by="self_cuda_memory_usage", row_limit=10)
@@ -622,7 +590,7 @@ def main():
             "subset": args.toy,
             "single_timestep_debug": args.debug_single_time,
             "cpu_only": args.cpu,
-            "ngpu": 7,
+            "ngpu": 6,
             "dryrun": args.dryrun,
         },
     )    

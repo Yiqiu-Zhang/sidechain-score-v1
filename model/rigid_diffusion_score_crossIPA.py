@@ -10,8 +10,8 @@ import numpy as np
 
 import math
 from torch.autograd import Variable
-from write_preds_pdb import structure_build_score
-from write_preds_pdb.geometry import Rigid, rigid_mul_vec, invert_rot_mul_vec, rot_vec
+from write_preds_pdb import structure_build_score, constant
+from write_preds_pdb.geometry import Rigid, loc_rigid_mul_vec, loc_invert_rot_mul_vec, Rotation, Rigid_update_trans, rot_vec
 
 from model.utils1 import matrix_to_quaternion,rot_to_quat
 
@@ -160,7 +160,6 @@ class InputEmbedder(nn.Module):
                                         pair_transition_n)
 
 
-
         self.linear_tf_n = nn.Linear(nf_dim, c_n)
 
         # Relative_position encoding
@@ -216,8 +215,6 @@ class InputEmbedder(nn.Module):
 
         ):
         
-        assert rigid_property.shape[-1] == 6
-
         batch_size, seq_len, _ = seq_esm.shape
         n_rigid = rigid_mask.shape[1]
 
@@ -241,8 +238,7 @@ class InputEmbedder(nn.Module):
         expand_diffusion_mask = expand_diffusion_mask.reshape(batch_size, -1, 1).repeat(1,1,self.c_n//2).to('cuda')
         mask_time = torch.cat([torch.sin(expand_diffusion_mask), torch.cos(expand_diffusion_mask)], dim=-1)
         node_sigma = torch.log(sigma / sigma_min) / np.log(sigma_max / sigma_min) * 10000
-        node_time = torch.tile(
-            get_timestep_embedding(node_sigma, self.c_n)[:, None, :], (1, n_rigid, 1))
+        node_time = torch.tile(get_timestep_embedding(node_sigma, self.c_n)[:, None, :], (1, n_rigid, 1))
         node_time = torch.where(expand_diffusion_mask.repeat(1,1,2), node_time, mask_time)
 
 
@@ -264,26 +260,36 @@ class InputEmbedder(nn.Module):
 
         ################ Pair_feature ####################
 
-        # [batch, N_rigid, N_rigid, C_x] C_x = 23?
+        # [batch, N_rigid, K, C_x] C_x = 23?
         distance_e = gather_edges(distance[...,None], E_idx).squeeze(-1)
         distance_rbf = rbf(distance_e)
-        #orientation_quaternions = matrix_to_quaternion(orientation)
-        #pair_feature = torch.cat((distance_rbf, altered_direction, orientation_quaternions),dim=-1)
-        #pair_feature = pair_feature.float()
+
+        #quaternions = matrix_to_quaternion(orientation)
+        #quaternions = gather_edges(quaternions, E_idx)
+
+        #altered_direction = gather_edges(altered_direction, E_idx)
+        
         nf_pair_feature = torch.cat([torch.tile(node_feature[:, :, None, :], (1, 1, n_rigid, 1)),
                                      torch.tile(node_feature[:, None, :, :], (1, n_rigid, 1, 1))], axis = -1)
         nf_pair_feature = gather_edges(nf_pair_feature, E_idx)
 
-        # [*, N_rigid, N_rigid, c_z]
+        # [*, N_rigid, K, c_z]
         d = self.relpos(seq_len, batch_size)
-        d_k = gather_edges(d, E_idx)
+        relative_pos = gather_edges(d, E_idx)
 
-        # [*, N_rigid, N_rigid, c_z] = [*, N_rigid, N_rigid, c_z]+ [*, N_rigid, 1, c_z] + [*, 1, N_rigid, c_z]
-
+        # [*, N_rigid, K]
         pair_mask_e = gather_edges(pair_mask.unsqueeze(-1), E_idx).squeeze(-1)
-        pair_emb = self.pair_embedder(distance_rbf, nf_pair_feature, d_k, pair_mask_e)
 
-        return node_emb, pair_emb, pair_mask_e, distance_e
+        pair_feature = torch.cat([distance_rbf, 
+                                  #altered_direction,
+                                  #quaternions,
+                                  nf_pair_feature, 
+                                  relative_pos],
+                                  dim = -1).float()
+        
+        pair_emb = self.pair_embedder(pair_feature, pair_mask_e)
+
+        return node_emb, pair_emb, pair_mask_e
 
 class EdgeInvariantPointAttention(nn.Module):
 
@@ -295,7 +301,7 @@ class EdgeInvariantPointAttention(nn.Module):
             no_heads: int,  # 8
             no_qk_points: int,  # 4
             no_v_points: int,  # 8
-            inf: float = 1e5,
+            inf: float = 1e8,
             eps: float = 1e-6,
     ):
         super(EdgeInvariantPointAttention, self).__init__()
@@ -311,16 +317,16 @@ class EdgeInvariantPointAttention(nn.Module):
 
         # These linear layers differ from  Alphafold IPA module, Here we use standard nn.Linear initialization
         hc = self.c_hidden * self.no_heads
-        self.linear_q = nn.Linear(self.c_n, hc)
-        self.linear_kv = nn.Linear(self.c_n, 2 * hc)
+        self.linear_q = nn.Linear(self.c_n, hc, bias=False)
+        self.linear_kv = nn.Linear(self.c_n, 2 * hc, bias=False)
 
         hpq = self.no_heads * self.no_qk_points * 3
-        self.linear_q_points = nn.Linear(self.c_n, hpq)
+        self.linear_q_points = nn.Linear(self.c_n, hpq, bias=False)
 
         hpkv = self.no_heads * (self.no_qk_points + self.no_v_points) * 3
-        self.linear_kv_points = nn.Linear(self.c_n, hpkv)
+        self.linear_kv_points = nn.Linear(self.c_n, hpkv, bias=False)
 
-        self.linear_b = nn.Linear(self.c_z, self.no_heads)
+        self.linear_b = nn.Linear(self.c_z, self.no_heads, bias=False)
 
         self.head_weights = nn.Parameter(torch.zeros(no_heads))
         ipa_point_weights_init_(self.head_weights)
@@ -335,9 +341,8 @@ class EdgeInvariantPointAttention(nn.Module):
 
     def forward(self,
              s: torch.Tensor, # node_emb
-             z: torch.Tensor, # [*, N_rigid, K, C_z]
+             z_e: torch.Tensor, # [*, N_rigid, K, C_z]
              r: Rigid, # I will need to make the rigid also become neighbor???
-             distance: torch.Tensor,
              direction: torch.Tensor,
              rel_ori: torch.Tensor,
              pair_mask: torch.Tensor,  # pair_mask
@@ -372,7 +377,7 @@ class EdgeInvariantPointAttention(nn.Module):
         q_pts = torch.split(q_pts, q_pts.shape[-1] // 3, dim=-1)
         q_pts = torch.stack(q_pts, dim=-1)  # [*, N_rigid, H * P_q, 3]
         # q_pts = r[..., None].apply(q_pts)
-        #q_pts = rigid_mul_vec(r[..., None], q_pts)  # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * P_q, 3]
+        #q_pts = loc_rigid_mul_vec(r[..., None], q_pts)  # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * P_q, 3]
 
         # [*, N_rigid, H, P_q, 3]
         q_pts = q_pts.view(
@@ -388,38 +393,31 @@ class EdgeInvariantPointAttention(nn.Module):
         # kv_pts = r[..., None].apply(kv_pts)
 
         # rigid mut vec [*, N_rigid, 1] rigid * [*, N_rigid, H * (P_q + P_v), 3]
-        #k_pts_nosplit = rigid_mul_vec(r[..., None], kv_pts)
+        #kv_pts = loc_rigid_mul_vec(r[..., None], kv_pts)
 
         # [*, N_rigid, H, (P_q + P_v), 3]
         kv_pts = kv_pts.view(kv_pts.shape[:-2] + (self.no_heads, -1, 3))
         # [*, N_rigid, K, H, (P_q + P_v), 3]
         kv_pts_e = gather_node(kv_pts, E_idx)
-        #k_pts_nosplit = gather_node(k_pts_nosplit, E_idx)
-
-        kv_pts_e = rot_vec(rel_ori[...,None,None,:,:], kv_pts_e)
 
         # [B, N, K, 1, 1, 3] X [B, N, K, H, (P_q + P_v), 3]
-        kv_pts_e = torch.cross(direction[...,None,None,:],kv_pts_e)
-
-        # [*, N, K, H, P_q/P_v, 3]
+        kv_pts_e = torch.cross(
+            direction[...,None,None,:],
+            rot_vec(rel_ori[...,None,None,:,:], kv_pts_e)
+                               )
+        # [*, N_rigid, H, P_q/P_v, 3]
         k_pts_e, v_pts_e = torch.split(
             kv_pts_e, [self.no_qk_points, self.no_v_points], dim=-2
         )
-        #k_pts_e, _ = torch.split(
-        #    k_pts_nosplit, [self.no_qk_points, self.no_v_points], dim=-2
-        #)
-        
-        #k_pts_e = rigid_mul_vec(r[..., None, None], k_pts_e)
-
 
 
         # [*, N_rigid, K, H]
-        b = self.linear_b(z)
+        b = self.linear_b(z_e)
 
         # [*, H, N_rigid, K]
-        qT_k = torch.matmul( # [B, N, 1, H, C_hidden] -> [B, N, H,  1, C_hidden]
-            permute_final_dims(q.unsqueeze(2), [1, 0, 2]),  # [B, N, H,  1, C_hidden]
-            permute_final_dims(k_e, [1, 2, 0]),  # [B, N, H, C_hidden, K]
+        qT_k = torch.matmul(
+            permute_final_dims(q.unsqueeze(2), [1, 0, 2]),  # [*, H, 1, C_hidden]
+            permute_final_dims(k_e, [1, 2, 0]),  # [*, H, C_hidden, K]
         ).view(q.shape[:3] + E_idx.shape[-1:]).transpose(-2, -3)
 
         qT_k *= math.sqrt(1.0 / (3 * self.c_hidden))  # (3 * self.c_hidden) WL * c
@@ -428,33 +426,13 @@ class EdgeInvariantPointAttention(nn.Module):
         b = (math.sqrt(1.0 / 3) * permute_final_dims(b, [2, 0, 1]))  # [*, H, N_rigid, K]
 
         a = qT_k + b
-        #[*, N_rigid, 1, H, P_q, 3] -  [*, N_rigid, K, H, P_q, 3]
+
         # [*, N_rigid, K, H, P_q, 3] = [*, N_rigid, 1, *] - [*, 1, K, *]
-        # [*, N_rigid, 1, H, P_q, 3]
-        '''
-        pt_att = torch.matmul(
-            permute_final_dims(q_pts.unsqueeze(-4),[1,2,0,3]), # [*, N, H, P_q, 1,  3]
-            permute_final_dims(k_pts_e,[1,2,3,0]) # [B, N, H, P_q, 3,  K,]
-        ).view((*q_pts.shape[:4], E_idx.shape[-1])) # [B, N, H, P_q, K,]
-
-        # [*, N_rigid, K, H, P_q]
-        head_weights = self.softplus(self.head_weights).view(
-            *((1,) * len(pt_att.shape[:-3]) + (-1, 1, 1))
-        )
-        head_weights = head_weights * math.sqrt(
-            1.0 / (3 * (self.no_qk_points * 3.0))
-        )
-
-        pt_att = pt_att * head_weights
-
-        # [B, H, N, K]
-        pt_att = torch.sum(permute_final_dims(pt_att,[1,0,3,2]), dim=-1) * (-0.5)  # Sum over point
-
-
-        '''
-        pt_att = q_pts.unsqueeze(-4) - k_pts_e * distance[...,None,None,None]
+        pt_att = q_pts.unsqueeze(-4) - k_pts_e
 
         pt_att = pt_att ** 2
+
+        # [*, N_rigid, K, H, P_q]
         pt_att = sum(torch.unbind(pt_att, dim=-1))  # calculate vector length
         head_weights = self.softplus(self.head_weights).view(
             *((1,) * len(pt_att.shape[:-2]) + (-1, 1))
@@ -462,6 +440,7 @@ class EdgeInvariantPointAttention(nn.Module):
         head_weights = head_weights * math.sqrt(
             1.0 / (3 * (self.no_qk_points * 9.0 / 2))
         )
+
         pt_att = pt_att * head_weights
 
         # [*, N_rigid, K, H]
@@ -485,13 +464,15 @@ class EdgeInvariantPointAttention(nn.Module):
         # [*, N_rigid, H * C_hidden]
         o = flatten_final_dims(o, 2).float()
 
-        # [B, H, 3, N, P_v] = [B, H, 1, N, K, 1] *  [B, H, 3, N, K, P_v]
+        # [*, H, 3, N_rigid, P_v]
+
         o_pt = torch.sum(
             (a[..., None, :, :, None] * permute_final_dims(v_pts_e,[2,4,0,1,3])),
             dim=-2).float()
 
-        # [B, N, H, P_v, 3]
+        # [*, N_rigid, H, P_v, 3]
         o_pt = permute_final_dims(o_pt, [2, 0, 3, 1])
+        #o_pt = loc_invert_rot_mul_vec(r[..., None, None], o_pt)
 
         # [*, N_rigid, H * P_v]
         o_pt_norm = flatten_final_dims(
@@ -503,7 +484,7 @@ class EdgeInvariantPointAttention(nn.Module):
 
 
         # [*, N_rigid, H, C_z] = [*, N_rigid, H, K] x [*, N_rigid, K, C_z]
-        o_pair = torch.matmul(a.transpose(-2, -3), z.to(dtype=a.dtype))
+        o_pair = torch.matmul(a.transpose(-2, -3), z_e.to(dtype=a.dtype))
 
         # [*, N_rigid, H * C_z]
         o_pair = flatten_final_dims(o_pair, 2).float()
@@ -532,7 +513,7 @@ class TransitionLayer(nn.Module):
 
         self.layer_norm = LayerNorm(self.c)
 
-    def forward(self, s):
+    def forward(self, s, rigid_mask):
         s_initial = s
         s = self.linear_1(s)
         s = self.relu(s)
@@ -542,6 +523,7 @@ class TransitionLayer(nn.Module):
 
         s = s + s_initial
 
+        s = s * rigid_mask[...,None]
         s = self.layer_norm(s)
 
         return s
@@ -826,6 +808,37 @@ class AngleResnetBlock(nn.Module):
 
         return t
 
+class RigidUpdate(nn.Module):
+    def __init__(self,
+                 c_n):
+
+        super(RigidUpdate, self).__init__()
+        self.c_n = c_n
+        self.linear_initial = nn.Linear(self.c_n, self.c_n)
+        self.relu = nn.ReLU()
+        self.linear = nn.Linear(self.c_n, 3)
+
+    def forward(self,
+                s,
+                ):
+        """
+                Args:
+                    s:
+                        [B, N_rigid, c_n] single embedding
+
+                        StructureModule
+                Returns:
+                    [*, no_angles] predicted angles
+                """
+
+
+        s = self.linear_initial(s)
+        s = self.relu(s)
+        # [B, N_rigid, 3]
+        trans = self.linear(s)
+
+        return trans
+
 class StructureUpdateModule(nn.Module):
 
     def __init__(self,
@@ -870,6 +883,7 @@ class StructureUpdateModule(nn.Module):
                                         no_rigids,
                                         epsilon)
         '''
+        #self.rigid_update = RigidUpdate(c_n)
 
         self.edge_transition = EdgeTransition(c_n,
                                               c_z,
@@ -882,19 +896,31 @@ class StructureUpdateModule(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
-                distance: torch.Tensor,
                 direction,
                 rel_ori: torch.Tensor,
+                rigid_mask,
                 pair_mask,
                 E_idx
                 ):
-
+        B, N_rigid = rigids.shape
+        sum_local_trans = torch.zeros((B,N_rigid,3),device=node_emb.device)
+        modified_rigid_mask = torch.ones((B,int(N_rigid/5),5),device=node_emb.device)
+        modified_rigid_mask[...,0] = 0.
+        modified_rigid_mask = modified_rigid_mask.reshape(B, N_rigid) * rigid_mask
+        #node_emb = torch.clone(init_node_emb)
         #node_emb = torch.clone(init_node_emb)
         for i, block in enumerate(self.blocks):
-            node_emb = block(node_emb, pair_emb, rigids, distance, direction, rel_ori, pair_mask, E_idx)
+            node_emb = block(node_emb, pair_emb, rigids, direction, rel_ori, rigid_mask, pair_mask, E_idx)
 
             pair_emb = self.edge_transition(node_emb, pair_emb, E_idx) * pair_mask.unsqueeze(-1)
 
+            '''
+            # local translate update
+            local_trans = self.rigid_update(node_emb)
+            modified_local_trans = local_trans * modified_rigid_mask[...,None]
+            rigids = Rigid_update_trans(rigids, modified_local_trans)
+            sum_local_trans += local_trans
+            '''
             # updated_chi_angles, unnormalized_chi_angles = self.angle_resnet(node_emb)
 
             # updated_chi_angles = torch.where(diffusion_mask[...,None], updated_chi_angles, ture_angles_sin_cos)
@@ -954,19 +980,19 @@ class StructureBlock(nn.Module):
                 node_emb,
                 pair_emb,
                 rigids,
-                distance: torch.Tensor,
                 direction,
                 rel_ori: torch.Tensor,
+                rigid_mask,
                 pair_mask,
-                E_idx
+                E_idx,
                 ):
 
         # [*, N_rigid, c_n]
         # ipa_emb = self.ipa(node_emb, rigids,pair_mask)
 
-        node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids,distance, direction, rel_ori, pair_mask, E_idx)
-        node_emb = self.ipa_ln(node_emb)
-        node_emb = self.node_transition(node_emb)
+        node_emb = node_emb + self.edge_ipa(node_emb, pair_emb, rigids, direction, rel_ori, pair_mask, E_idx)
+        node_emb = self.ipa_ln(node_emb) # 即使是没用的rigid 最后经过layer norm之后也变的有 东西了 而且和正常的 node数值一样
+        node_emb = self.node_transition(node_emb, rigid_mask)
 
         return node_emb
 
@@ -976,13 +1002,13 @@ class RigidDiffusion(nn.Module):
                  num_blocks: int = 3, # StructureUpdateModule的循环次数
 
                  # InputEmbedder config
-                 nf_dim: int = 6 + 20 + 320,
+                 nf_dim: int = 7 + 19 + 320,
                  c_n: int = 384, # Node channel dimension after InputEmbedding
                  relpos_k: int = 16, # relative position neighbour range
                  edge_type: int = 10,
 
                  # PairEmbedder parameter
-                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
+                 pair_dim: int = 16 + 346 * 2 + 2*16 + 1 + 10, # rbf+3+4 + nf_dim* 2 + 2* relpos_k+1 + 10 edge type
                  c_z: int = 64, # Pair channel dimension after InputEmbedding
                  c_hidden_tri_att: int = 16, # x2 cause we x2 the input dimension
                  c_hidden_tri_mul: int = 32, # Keep ori
@@ -1003,10 +1029,14 @@ class RigidDiffusion(nn.Module):
                  no_rigids: int = 5, # number of rigids to concate togather
                  epsilon: int = 1e-7,
                  top_k: int =64,
+
+                 # Arc config
+                 all_loc = False,
                  ):
 
         super(RigidDiffusion, self).__init__()
 
+        self.all_loc = all_loc
         self.num_blocks = num_blocks
         self.top_k = top_k
 
@@ -1041,6 +1071,7 @@ class RigidDiffusion(nn.Module):
                                                   epsilon
         )
         '''
+        #self.rigid_update = RigidUpdate(c_n)
 
         # 预测8个 sin cos  改为预测4个角度
         self.score_predictor = AngleScore(c_n,
@@ -1050,14 +1081,13 @@ class RigidDiffusion(nn.Module):
                                            no_rigids,
                                            epsilon
         )
+        #self.trans_update = TransUpdate(c_n)
 
 
     def forward(self,
-                #side_chain_angles,
-                #ture_angles,
-                #backbone_coords,
-                seq_idx,
                 rigids,
+                #local_r,
+                seq_idx,
                 #diffusion_mask,
                 sigma,
                 seq_esm,
@@ -1078,38 +1108,39 @@ class RigidDiffusion(nn.Module):
         altered_direction = gather_edges(altered_direction, E_idx)
         orientation = gather_edges(orientation.flatten(-2), E_idx).reshape((*E_idx.shape,3,3))
         # [*, N_rigid, c_n], [*, N_rigid, N_rigid, c_z]
-        init_node_emb, pair_emb, pair_mask_e, distance_e = self.input_embedder(#side_chain_angles,
+        init_node_emb, pair_emb, pair_mask_e = self.input_embedder(
                                                 seq_esm,
                                                 #diffusion_mask,
                                                 rigid_type,
                                                 rigid_property,
                                                 distance,
-                                              # altered_direction,
-                                              # orientation,
+                                                #altered_direction,
+                                                #orientation,
                                                 rigid_mask,
                                                 pair_mask,
                                                 E_idx,
                                                 sigma)
           
-        # [*, N_res, c_n * 5]      
-        node_emb = self.structure_update(init_node_emb,
+        # [B, N_rigid, c_n/3]      
+        node_emb= self.structure_update(init_node_emb,
                                          pair_emb,
                                          rigids,
-                                         distance_e,
                                          altered_direction,
                                          orientation,
+                                         rigid_mask,
                                          pair_mask_e,
                                          E_idx)
 
         # Reshape N_rigid into N_res 这里其实一直没有好好写， 这五个rigid的表示直接被拼起来就用来预测角度了，这里是不是应该换一种方法？
         # 直接放到 IPA 里面怎么样
         # node_emb = node_emb.reshape(node_emb.shape[0], -1, node_emb.shape[-1] * 5)
-        # 或许正确的操作应该是 预测noise 用加噪音后的角度-noise 继续， 而不是直接预测角度 然后最后预测noise
 
+        # [B, N_rigid, c_n] -->  [B, N_res,4]    
         score = self.score_predictor(node_emb, init_node_emb)
+        #local_trans = self.rigid_update(node_emb)
+        #transed_local_r = self.trans_update(node_emb, local_r)
 
-        #  noise = self.noise_predictor(node_emb, init_node_emb)
-
-        return score
+        # [B, N_res,4],  [B, N_rigid, 3] 
+        return score#, local_trans
 
 

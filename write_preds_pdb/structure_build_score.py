@@ -8,6 +8,7 @@ from constant import (restype_rigid_group_default_frame,
                       restype_atom37_mask,
                       make_atom14_37_list,
                       restype_frame_mask,
+                      end_rigid,
                       )
 
 import constant as rc
@@ -273,6 +274,19 @@ def torsion_to_frame(angles_sin_cos,
     sc_to_bb, local_r = rotate_sidechain(aatype_idx, angles_sin_cos, last_step_r)
     all_frames_to_global = geometry.Rigid_mult(bb_to_gb[..., None], sc_to_bb)
 
+    '''
+    # Only for flat frame 
+    all_rigid = all_frames_to_global[..., [0, 4, 5, 6, 7]]
+
+    two_rigid_mask = torch.tensor(end_rigid).to('cuda') #[21,5] = [*,N,5]
+
+    # [*, N_res, 5]
+    two_rigid_mask = two_rigid_mask[aatype_idx, ...]
+    
+    all_rigid = all_rigid * two_rigid_mask
+
+    #flat_mask = torch.flatten(two_rigid_mask, start_dim=-2)
+    '''
     # [*, N_rigid]
     flatten_frame = geometry.flatten_rigid(all_frames_to_global[..., [0, 4, 5, 6, 7]])
 
@@ -298,7 +312,14 @@ def frame_to_edge(frames: geometry.Rigid,  # [*, N_rigid] Rigid
     # [*, N_res, 5]
     frame_mask = restype_frame5_mask[aatype_idx, ...].to('cuda')
     frame_mask = frame_mask * pad_mask[..., None].to('cuda')
+    '''
+    two_rigid_mask = torch.tensor(end_rigid).to('cuda') #[21,5] = [*,N,5]
 
+    # [*, N_res, 5]
+    two_rigid_mask = two_rigid_mask[aatype_idx, ...]
+    frame_mask = frame_mask * two_rigid_mask
+    '''
+    
     # [*, N_rigid]
     flat_mask = torch.flatten(frame_mask, start_dim=-2)
 

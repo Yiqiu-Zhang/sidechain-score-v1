@@ -345,15 +345,8 @@ class AngleDiffusionBase(nn.Module):
         )
         print('==============================model_args', model_args)
         if load_weights:
-            epoch_getter = lambda x: int(
-                re.findall(r"epoch=[0-9]+", os.path.basename(x)).pop().split("=")[-1]
-            )
             subfolder = f"best_by_{best_by}"
-            # Sort checkpoints by epoch -- last item is latest epoch
-            ckpt_names = sorted(
-                glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt")),
-                key=epoch_getter,
-            )
+            ckpt_names = glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt"))
             logging.info(f"Found {len(ckpt_names)} checkpoints")
             ckpt_name = ckpt_names[idx]
             logging.info(f"Loading weights from {ckpt_name}")
@@ -538,10 +531,8 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         avg_loss = self._get_loss_terms_grad(batch)
         
-        loss_dict = {}
-        loss_dict["train_loss"] = avg_loss
-        self.log_dict(loss_dict)  # Don't seem to need rank zero or sync dist
-        
+        self.log("train_loss", avg_loss, on_epoch=True)
+
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
@@ -566,24 +557,14 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             avg_loss = self._get_loss_terms_grad(batch)
             self.write_preds_counter += 1
 
-        # Log each of the loss terms
-        loss_dict = {}
-        loss_dict["val_loss"] = avg_loss
-        # with rank zero it seems that we don't need to use sync_dist
-        self.log_dict(loss_dict, rank_zero_only=True)
-
-        return {"val_loss": avg_loss}
+        self.log("val_loss", avg_loss, on_epoch=True)
+        return avg_loss
 
     def validation_epoch_end(self, outputs) -> None:
         """Log the average validation loss over the epoch"""
         # Note that this method is called before zstraining_epoch_end().
-        losses = torch.stack([o["val_loss"] for o in outputs])
+        losses = torch.stack([o for o in outputs])
         mean_loss = torch.mean(losses)
-        
-        loss_dict = {
-            "mean_loss": mean_loss
-        }
-        self.log_dict(loss_dict, rank_zero_only=True)
         
         pl.utilities.rank_zero_info(
             f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
