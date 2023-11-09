@@ -841,20 +841,6 @@ class CathSideChainAnglesDataset(Dataset):
             angles = torch.from_numpy(angles)
         except:
             pass
-      #  print("===============================", type(seq))
-       # seq = torch.from_numpy(seq)
-       # print("===========111====================", seq.shape)
-        '''
-        print(f'coords{type(coords)}')
-        print(f'acid_embedding{type(acid_embedding)}')
-        print(f'rigid_type_onehot{type(rigid_type_onehot)}')
-        print(f'rigid_property{type(rigid_property)}')
-        print(f'attn_mask{type(attn_mask)}')
-        print(f'position_ids{type(position_ids)}')
-        print(f'acid_embedding{type(acid_embedding)}')
-        print(f'attn_mask{type(attn_mask)}')
-        print(f'position_ids{type(position_ids)}')
-        '''
 
         retval = {
             "angles": angles,

@@ -237,47 +237,32 @@ def square_chi_loss_with_periodic(
 
     return sq_chi_loss + angle_norm_weight * angle_norm_loss
 
-def score_loss(predicted_score: torch.Tensor, # [B,N,4]
-               #local_trans: torch.Tensor, # [B,N,3]
-               known_noise: torch.Tensor, # [B,N,4]
-               sigma: torch.Tensor, # sigma [B]
-               seq,  # [b,L] restpyes in number # keep it for the periodic symmetry
-               angles,
-               coords,
-               rigids,
-               mask: torch.Tensor, # [B,N,4]
-               eps: float = 1e-4,
-               clamp_distance: float = 2,
-               length_scale: float = 2,
-               all_loc: bool = False
-               ):
-    
-    
-    sigma = sigma.unsqueeze(1)
-    assert len(sigma.shape) == 2
+def score_loss(predicted_score: torch.Tensor, data  ):
+
+    sigma = data.res_sigma
+    known_noise = data.noise
 
     sigma = torch.log(sigma / torch.pi)
     sigma = (sigma - torch.log(SIGMA_MIN)) / (torch.log(SIGMA_MAX) - torch.log(SIGMA_MIN)) * SIGMA_N
     sigma_idx = torch.round(torch.clip(sigma, 0, SIGMA_N)).to(int)
 
-    # [b, L, 21]
-    residue_type_one_hot = F.one_hot(seq, 20 + 1)
+    # [L, 21]
+    residue_type_one_hot = F.one_hot(data.aatype, 20 + 1)
 
-    # [B, L, 4]
+    # [L, 4]
     chi_pi_periodic = torch.einsum(
-        "...ij,jk->...ik",
+        "ij,jk-> ik",
         residue_type_one_hot.type(predicted_score.dtype),
         predicted_score.new_tensor(constant.chi_pi_periodic), # [21, 4]
     ).to(torch.bool).to(known_noise.device)
 
 
-    # [B,N,4]
-    score = torus_score.score(known_noise, sigma_idx[...,None], chi_pi_periodic)
+    # [L,4]
+    score = torus_score.score(known_noise, sigma_idx, chi_pi_periodic)
 
-    score_norm = torus_score.score_norm(sigma_idx[...,None], chi_pi_periodic)
-    #score_norm = torus_score.score_norm(sigma_idx)
+    score_norm = torus_score.score_norm(sigma_idx, chi_pi_periodic)
 
-    loss = mask_mean(mask,
+    loss = mask_mean(data.chi_mask,
                     (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
                      dim=(-1, -2, -3))
     '''

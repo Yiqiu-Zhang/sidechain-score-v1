@@ -1,10 +1,5 @@
-######################################################################################
-#为了符合pair embedding的更新方式，修改了此文件
-######################################################################################
 from torch import nn
 import torch
-from functools import partial
-from typing import Optional
 
 from triangular_attention import TriangleAttentionStartingNode, TriangleAttentionEndingNode
 from triangular_multiplicative_update import TriangleMultiplicationOutgoing, TriangleMultiplicationIncoming
@@ -162,11 +157,11 @@ class PairEmbedder(nn.Module):
         self,
         pair_dim,
         c_z,
-        c_hidden_tri_att,
-        c_hidden_tri_mul,
-        no_blocks,
-        no_heads,
-        pair_transition_n,
+        #c_hidden_tri_att,
+        #c_hidden_tri_mul,
+        #no_blocks,
+        #no_heads,
+        #pair_transition_n,
     ):
         """
         Args:
@@ -194,19 +189,14 @@ class PairEmbedder(nn.Module):
     def forward(
         self,
         pair_feature: torch.Tensor,
-        pair_mask: torch.Tensor,
-
     ) -> torch.Tensor:
         
-        pair_emb = self.linear_1(pair_feature.float())
+        pair_emb = self.linear_1(pair_feature)
         pair_emb = self.relu(pair_emb)
         pair_emb = self.linear_2(pair_emb)
 
         pair_emb = self.ln(pair_emb)
 
-
-      #  pair_emb = self.linear(pair_feature)
-      #  pair_emb = pair_emb + pair_time + relative_pos + nf_pair_emb
       #  pair_emb = self.pair_stack(pair_emb, pair_mask)
 
-        return pair_emb * pair_mask.unsqueeze(-1)
+        return pair_emb

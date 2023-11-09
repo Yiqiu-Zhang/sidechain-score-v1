@@ -33,6 +33,7 @@ import torch.nn.functional as F
 
 import pytorch_lightning as pl
 from pytorch_lightning.strategies.ddp import DDPStrategy
+from torch_geometric.data import Dataset, DataLoader, lightning
 
 from transformers import BertConfig
 
@@ -44,6 +45,7 @@ from foldingdiff import beta_schedules
 from foldingdiff import plotting
 from foldingdiff import utils
 from foldingdiff import custom_metrics as cm
+from model import dataset
 from torchsummary import summary
 
 #                        
@@ -148,10 +150,6 @@ def get_train_valid_test_sets(
     ), f"Invalid value for single_angle_debug: {single_angle_debug}"
 
     clean_dset_class = {
-        "canonical": datasets.CathCanonicalAnglesDataset,
-        "canonical-full-angles": datasets.CathCanonicalAnglesOnlyDataset,
-        "canonical-minimal-angles": datasets.CathCanonicalMinimalAnglesDataset,
-        "cart-coords": datasets.CathCanonicalCoordsDataset,
         "side-chain-angles":datasets.CathSideChainAnglesDataset,
     }["side-chain-angles"]
     logging.info(f"Clean dataset class: {clean_dset_class}")
@@ -172,7 +170,6 @@ def get_train_valid_test_sets(
     ]
 
     assert len(clean_dsets) == len(splits)
-    print("=========================================================")
     # Set the training set mean to the validation set mean
     if len(clean_dsets) > 1 and clean_dsets[0].means is not None:
         logging.info(f"Updating valid/test mean offset to {clean_dsets[0].means}")
@@ -246,26 +243,6 @@ def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
         for k, v in func_args.items():
             logging.info(f"Training argument: {k}={v}")
 
-    # Record current Git version
-    '''
-    try:
-        import git
-
-        repo = git.Repo(
-            path=os.path.dirname(os.path.abspath(__file__)),
-            search_parent_directories=True,
-        )
-        sha = repo.head.object.hexsha
-        with open(results_folder / "git_sha.txt", "w") as sink:
-            sink.write(sha + "\n")
-    except git.exc.InvalidGitRepositoryError:
-        logging.warning("Could not determine Git repo status -- not a git repo")
-    except ModuleNotFoundError:
-        logging.warning(
-            f"Could not determine Git repo status -- GitPython is not installed"
-        )
-    '''
-
 def train(
     # Controls output
     results_dir: str = "./results",
@@ -328,83 +305,27 @@ def train(
     results_folder = Path(results_dir)
     record_args_and_metadata(func_args, results_folder)
 
-    # Get datasets and wrap them in dataloaders
-    dsets = get_train_valid_test_sets(
-        dataset_key=dataset_key,
-        angles_definitions=angles_definitions,
-        max_seq_len=max_seq_len,
-        min_seq_len=min_seq_len,
-        seq_trim_strategy=trim_strategy,
-        timesteps=timesteps,
-        variance_schedule=variance_schedule,
-        var_scale=variance_scale,
-        toy=subset,
-        syn_noiser=syn_noiser,
-        exhaustive_t=exhaustive_validation_t,
-        single_angle_debug=single_angle_debug,
-        single_time_debug=single_timestep_debug,
-    )
-    # Record the masked means in the output directory
-    
-    np.save(
-        results_folder / "training_mean_offset.npy",
-        dsets[0].dset.get_masked_means(),
-        fix_imports=False,
-    )
-    #sample_input = dsets[0][0]["corrupted"]  #testing lvying
-    # Calculate effective batch size
-    # https://pytorch-lightning.readthedocs.io/en/1.4.0/advanced/multi_gpu.html#batch-size
-    # Under DDP, effective batch size is batch_size * num_gpus * num_nodes
+    full_data_name = 'cath_test.pkl'
+    transform = dataset.TorsionNoiseTransform()
+    dsets = [dataset.ProteinDataset(split=s,
+                                    pickle_dir=full_data_name,
+                                    transform=transform) for s in ('train', 'val')]
+
     effective_batch_size = batch_size
     if torch.cuda.is_available():
         effective_batch_size = int(batch_size / torch.cuda.device_count())
     pl.utilities.rank_zero_info(
         f"Given batch size: {batch_size} --> effective batch size with {torch.cuda.device_count()} GPUs: {effective_batch_size}"
     )
-    train_dataloader, valid_dataloader, test_dataloader = [
-        DataLoader(
-            dataset=ds,
-            batch_size=effective_batch_size,
-            shuffle=i == 0,  # Shuffle only train loader
-            #num_workers=multiprocessing.cpu_count() if multithread else 1,
-            num_workers= 0,
-            pin_memory=True,
-        )
-        for i, ds in enumerate(dsets)
-    ]
-   # sample_input = dsets[0][0]["corrupted"]
-    # Create plots in output directories of distributions from different timesteps
-    plots_folder = results_folder / "plots"
-    os.makedirs(plots_folder, exist_ok=True)
-    # Skip this for debug runs
-    if (
-        single_angle_debug < 0
-        and not single_timestep_debug
-        and not syn_noiser
-        and not dryrun
-    ):
-        plot_kl_divergence(dsets[0], plots_folder)
-        plot_timestep_distributions(
-            dsets[0],
-            timesteps=timesteps,
-            plots_folder=plots_folder,
-        )
 
-    # https://jaketae.github.io/study/relative-positional-encoding/
-    # looking at the relative distance between things is more robust
-    
+    datamodule = lightning.LightningDataset(train_dataset=dsets[0],
+                                            val_dataset=dsets[1],
+                                            batch_size=effective_batch_size,)
+
     loss_fn = loss
-    if single_angle_debug > 0 or single_timestep_debug or syn_noiser:
-        loss_fn = functools.partial(losses.square_chi_loss_with_periodic, beta=0.1 * np.pi)
     logging.info(f"Using loss function: {loss_fn}")
 
     # Shape of the input is (batch_size, timesteps, features)
-
-    sample_input = dsets[0][0]["corrupted"]  # First item of the training dset
-    #sample_input1 = dsets[0]["corrupted"] 
-
-    model_n_inputs = sample_input.shape[-1]
-    logging.info(f"Auto detected {model_n_inputs} inputs")
 
     cfg = BertConfig(
         max_position_embeddings=max_seq_len,
@@ -418,14 +339,11 @@ def train(
         use_cache=False,
     )
     # ft_is_angular from the clean datasets angularity definition
-    ft_key = "coords" if angles_definitions == "cart-coords" else "angles"
     model = modelling.AngleDiffusion(
         config=cfg,
         time_encoding=time_encoding,
         pred_all = pred_all,
         #decoder=decoder,
-        ft_is_angular=dsets[0].dset.feature_is_angular[ft_key],
-        ft_names=dsets[0].dset.feature_names[ft_key],
         lr=lr,
         loss=loss_fn,
       #  diffusion_fraction = 0.7,
@@ -436,7 +354,7 @@ def train(
         l1=l1_norm,
         circle_reg=circle_reg,
         epochs=max_epochs,
-        steps_per_epoch=len(train_dataloader),
+        steps_per_epoch=len(datamodule.train_dataloader()),
         lr_scheduler=lr_scheduler,
        # num_encoder_layers=num_encoder_layers,
         write_preds_to_dir=results_folder / "valid_preds"
@@ -457,15 +375,7 @@ def train(
             strategy = DDPStrategy(find_unused_parameters=False)
 
     logging.info(f"Using {accelerator} with strategy {strategy}")
-    # start=================================lvying================================
-    print("model=",model)
-   # model_size = pl.utilities.memory.get_model_size_mb(model)
-   # print("model_size = {} M \n".format(model_size))
-    
 
-    # end=================================lvying================================
-  #  print("=================================LvYing Train Start================================")
-   # profiler = PyTorchProfiler(group_by_input_shapes=True,row_limit=-1, record_module_names=True, sort_by_key="self_cuda_memory_usage")
     trainer = pl.Trainer(
         default_root_dir=results_folder,
         gradient_clip_val=gradient_clip,
@@ -474,7 +384,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=len(train_dataloader),  # Log >= once per epoch
+        log_every_n_steps=len(datamodule.train_dataloader()),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
         gpus=ngpu,
@@ -485,48 +395,14 @@ def train(
       #  amp_backend='apex',  
      #   amp_level = 'O1'    
     )
-   # print("=================================LvYing testing================================")
-    '''
-    print("++++++++++++++++++++++++++++++++++++model framework++++++++++++++++++++++++++++++++++++++")
-    temp_idx = 0
-    for name, param in model.named_parameters():
-        if not param.requires_grad:
-           continue
-        if param.grad is None:
-           print(temp_idx,name)
-           temp_idx = temp_idx+1
-    print("++++++++++++++++++++++++++++++++++++model framework++++++++++++++++++++++++++++++++++++++")
-    '''
-    #print(train_dataloader.batch_size)
-   # print(valid_dataloader.batch_size)
-   # data_iter = iter(train_dataloader)
-    
-   # print(next(data_iter))
+
     torch.autograd.set_detect_anomaly(True)
     
     trainer.fit(
         model=model,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=valid_dataloader,
+        datamodule=datamodule,
         #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/result_122_crossIPA copy/models/best_by_valid/sample-mnist-epoch=226-mean_loss=0.541.ckpt'
     )
-   # profiler_results = profiler.profile
-   # summary = profiler_resultskey_averages().table(sort_by="self_cuda_memory_usage", row_limit=10)
-   # print(profiler_results)
-   # summary = torch.cuda.memory_summary(device="cuda", abbreviated=True)
-   # print(summary)
-    
-    #print("=================================LvYing Train Finish================================")
-    #Plot the losses
-    #metrics_csv = os.path.join(
-     #   trainer.logger.save_dir, "lightning_logs/version_0/metrics.csv"
-    #)
-   # assert os.path.isfile(metrics_csv)
-    # Plot the losses
-  #  plotting.plot_losses(
- #       metrics_csv, out_fname=plots_folder / "losses.pdf", simple=True
-#    )
-
 
 def build_parser() -> argparse.ArgumentParser:
     """

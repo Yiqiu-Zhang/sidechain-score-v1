@@ -79,8 +79,8 @@ p_pi = torch.tensor(p_pi).to('cuda')
 score_norm_pi = torch.tensor(score_norm_pi).to('cuda')
 
 
-def score(x: torch.Tensor, # [B,N,4]
-          sigma_idx: torch.Tensor, # sigma_idx
+def score(x: torch.Tensor, # [N,4]
+          sigma_idx: torch.Tensor, # sigma_idx [1]
           chi_pi_periodic):
     x = (x + torch.pi) % (2 * torch.pi) - torch.pi #[-pi pi]
     sign = torch.sign(x)
@@ -91,7 +91,7 @@ def score(x: torch.Tensor, # [B,N,4]
     score = torch.where(chi_pi_periodic, score_pi[sigma_idx, x].to(x.device),
                         score_[sigma_idx, x].to(x.device))
 
-    return -sign * score
+    return -sign * score # [B,N,4]
 
 def score_norm(sigma_idx,
                chi_pi_periodic):
