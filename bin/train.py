@@ -38,7 +38,7 @@ from torch_geometric.data import Dataset, DataLoader, lightning
 from transformers import BertConfig
 
 sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
-from foldingdiff import datasets_score as datasets
+#from foldingdiff import datasets_score as datasets
 from foldingdiff import modelling_score as modelling
 from foldingdiff import losses_score as losses
 from foldingdiff import beta_schedules
@@ -123,86 +123,6 @@ def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
     )
     fig.savefig(outname, bbox_inches="tight")
 
-
-def get_train_valid_test_sets(
-    dataset_key: str = "cath",
-    angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
-    max_seq_len: int = 512,
-    min_seq_len: int = 0,
-    seq_trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
-    timesteps: int = 250,
-    variance_schedule: beta_schedules.SCHEDULES = "linear",
-    var_scale: float = np.pi,
-    toy: Union[int, bool] = False,
-    exhaustive_t: bool = False,
-    syn_noiser: str = "",
-    single_angle_debug: int = -1,  # Noise and return a single angle. -1 to disable, 1-3 for omega/theta/phi
-    single_time_debug: bool = False,  # Noise and return a single time
-    train_only: bool = False,
-) -> Tuple[Dataset, Dataset, Dataset]:
-    """
-    Get the dataset objects to use for train/valid/test
-
-    Note, these need to be wrapped in data loaders later
-    """
-    assert (
-        single_angle_debug != 0
-    ), f"Invalid value for single_angle_debug: {single_angle_debug}"
-
-    clean_dset_class = {
-        "side-chain-angles":datasets.CathSideChainAnglesDataset,
-    }["side-chain-angles"]
-    logging.info(f"Clean dataset class: {clean_dset_class}")
-
-    splits = ["train"] if train_only else ["train", "validation", "test"]
-    logging.info(f"Creating data splits: {splits}")
-    clean_dsets = [
-        clean_dset_class(
-            pdbs=dataset_key,
-            split=s,
-            pad=max_seq_len,
-            min_length=min_seq_len,
-            trim_strategy=seq_trim_strategy,
-            zero_center=False,
-            toy=toy,
-        )
-        for s in splits
-    ]
-
-    assert len(clean_dsets) == len(splits)
-    # Set the training set mean to the validation set mean
-    if len(clean_dsets) > 1 and clean_dsets[0].means is not None:
-        logging.info(f"Updating valid/test mean offset to {clean_dsets[0].means}")
-        for i in range(1, len(clean_dsets)):
-            clean_dsets[i].means = clean_dsets[0].means
-
-
-    dset_noiser_class = datasets.NoisedAnglesDataset
-
-    logging.info(f"Using {dset_noiser_class} for noise")
-    noised_dsets = [
-        dset_noiser_class(
-            dset=ds,
-            dset_key="coords" if angles_definitions == "cart-coords" else "angles",
-            timesteps=timesteps,
-            exhaustive_t=(i != 0) and exhaustive_t,
-            beta_schedule=variance_schedule,
-            nonangular_variance=1.0,
-            angular_variance=var_scale,
-        )
-        for i, ds in enumerate(clean_dsets)
-    ]
-    for dsname, ds in zip(splits, noised_dsets):
-        logging.info(f"{dsname}: {ds}")
-
-    # Pad with None values
-    if len(noised_dsets) < 3:
-        noised_dsets = noised_dsets + [None] * int(3 - len(noised_dsets))
-    assert len(noised_dsets) == 3
-
-    return tuple(noised_dsets)
-
-
 def build_callbacks(outdir: str):
     """
     Build out the callbacks
@@ -248,54 +168,21 @@ def train(
     results_dir: str = "./results",
     # Controls data loading and noising process
     dataset_key: str = "bc40",  # cath, alhpafold, or a directory containing pdb files
-    angles_definitions: ANGLES_DEFINITIONS = "canonical-full-angles",
-    max_seq_len: int = 128,
-    min_seq_len: int = 0,  # 0 means no filtering based on min sequence length
-    trim_strategy: datasets.TRIM_STRATEGIES = "leftalign",
-    timesteps: int = 250,
-    variance_schedule: beta_schedules.SCHEDULES = "linear",  # cosine better on single angle toy test
-    variance_scale: float = 1.0,
-    # Related to model architecture
-    time_encoding: modelling.TIME_ENCODING = "gaussian_fourier",
-    num_hidden_layers: int = 12,  # Default 12
-    hidden_size: int = 384,  # Default 768
-    intermediate_size: int = 768,  # Default 3072
-    num_heads: int = 12,  # Default 12
-    position_embedding_type: Literal[
-        "absolute", "relative_key", "relative_key_query"
-    ] = "absolute",  # relative_key = https://arxiv.org/pdf/1803.02155.pdf | relative_key_query = https://arxiv.org/pdf/2009.13658.pdf
-    dropout_p: float = 0.1,  # Default 0.1, can disable for debugging
-   # decoder: modelling.DECODER_HEAD = "mlp",
+
     # Related to training strategy
     gradient_clip: float = 1.0,  # From BERT trainer
     batch_size: int = 16,
     lr: float = 5e-5,  # Default lr for huggingface BERT trainer
-    loss: modelling.LOSS_KEYS = "square_chi_loss_with_periodic",
-    use_pdist_loss: Union[
-        float, Tuple[float, float]
-    ] = 0.0,  # Use the pairwise distances between CAs as an additional loss term, multiplied by this scalar
     l2_norm: float = 0.0,  # AdamW default has 0.01 L2 regularization, but BERT trainer uses 0.0
     l1_norm: float = 0.0,
-    circle_reg: float = 0.0,
     min_epochs: Optional[int] = None,
     max_epochs: int = 10000,
-    early_stop_patience: int = 0,  # Set to 0 to disable early stopping
     lr_scheduler: modelling.LR_SCHEDULE = None,
-    use_swa: bool = False,  # Stochastic weight averaging can improve training genearlization
-    # Misc. and debugging
-    multithread: bool = True,
-    subset: Union[bool, int] = False,  # Subset to n training examples
-    exhaustive_validation_t: bool = False,  # Exhaustively enumerate t for validation/test
-    syn_noiser: str = "",  # If specified, use a synthetic noiser
-    single_angle_debug: int = -1,  # Noise and return a single angle, choose [1, 2, 3] or -1 to disable
-    single_timestep_debug: bool = False,  # Noise and return a single timestep
+
     cpu_only: bool = False,
     ngpu: int = -1,  # -1 for all GPUs
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
-    dryrun: bool = False,  # Disable some frills for a fast run to just train
-    pred_all: bool = False,
 
-  #  num_encoder_layers: int = 1,
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -305,10 +192,11 @@ def train(
     results_folder = Path(results_dir)
     record_args_and_metadata(func_args, results_folder)
 
-    full_data_name = 'cath_test.pkl'
+    graph_data = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl'
     transform = dataset.TorsionNoiseTransform()
-    dsets = [dataset.ProteinDataset(split=s,
-                                    pickle_dir=full_data_name,
+    dsets = [dataset.ProteinDataset(cache = graph_data,
+                                    split=s,
+                                    #pickle_dir=full_data_name,
                                     transform=transform) for s in ('train', 'val')]
 
     effective_batch_size = batch_size
@@ -320,49 +208,19 @@ def train(
 
     datamodule = lightning.LightningDataset(train_dataset=dsets[0],
                                             val_dataset=dsets[1],
-                                            batch_size=effective_batch_size,)
+                                            batch_size=effective_batch_size,
+                                            pin_memory=True)
 
-    loss_fn = loss
-    logging.info(f"Using loss function: {loss_fn}")
-
-    # Shape of the input is (batch_size, timesteps, features)
-
-    cfg = BertConfig(
-        max_position_embeddings=max_seq_len,
-        num_attention_heads=num_heads,
-        hidden_size=hidden_size,
-        intermediate_size=intermediate_size,
-        num_hidden_layers=num_hidden_layers,
-        position_embedding_type=position_embedding_type,
-        hidden_dropout_prob=dropout_p,
-        attention_probs_dropout_prob=dropout_p,
-        use_cache=False,
-    )
-    # ft_is_angular from the clean datasets angularity definition
     model = modelling.AngleDiffusion(
-        config=cfg,
-        time_encoding=time_encoding,
-        pred_all = pred_all,
-        #decoder=decoder,
         lr=lr,
-        loss=loss_fn,
-      #  diffusion_fraction = 0.7,
-        use_pairwise_dist_loss=use_pdist_loss
-        if isinstance(use_pdist_loss, float)
-        else [*use_pdist_loss, timesteps],
+      # diffusion_fraction = 0.7,
         l2=l2_norm,
         l1=l1_norm,
-        circle_reg=circle_reg,
         epochs=max_epochs,
         steps_per_epoch=len(datamodule.train_dataloader()),
         lr_scheduler=lr_scheduler,
-       # num_encoder_layers=num_encoder_layers,
-        write_preds_to_dir=results_folder / "valid_preds"
-        if write_valid_preds
-        else None,
-        
+        write_preds_to_dir=results_folder / "valid_preds" if write_valid_preds else None,
     )
-    cfg.save_pretrained(results_folder)
 
     callbacks = build_callbacks(outdir=results_folder)
 
@@ -390,10 +248,6 @@ def train(
         gpus=ngpu,
         enable_progress_bar=False,
         move_metrics_to_cpu=False,  # Saves memory
-       # detect_anomaly=True
-     #   profiler=profiler,
-      #  amp_backend='apex',  
-     #   amp_level = 'O1'    
     )
 
     torch.autograd.set_detect_anomaly(True)
@@ -463,11 +317,8 @@ def main():
         config_args,
         {
             "results_dir": args.outdir,
-            "subset": args.toy,
-            "single_timestep_debug": args.debug_single_time,
             "cpu_only": args.cpu,
             "ngpu": 6,
-            "dryrun": args.dryrun,
         },
     )    
     train(**config_args)

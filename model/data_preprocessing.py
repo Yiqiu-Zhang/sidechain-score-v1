@@ -1,13 +1,13 @@
 import pickle
 
-from constant import restype_frame_mask, restype_rigid_group_default_frame
-import geometry
+from write_preds_pdb.constant import restype_frame_mask, restype_rigid_group_default_frame
+import write_preds_pdb.geometry as geometry
 
 import torch
 import torch_geometric.data
 
 
-full_data_name = 'cath_test.pkl'
+full_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/cath_test.pkl'
 
 with open(full_data_name, "rb") as file:
 
@@ -21,7 +21,7 @@ with open(full_data_name, "rb") as file:
 
 
 def get_default_r(restype_idx):
-    default_frame = torch.tensor(restype_rigid_group_default_frame)
+    default_frame = torch.tensor(restype_rigid_group_default_frame, device= restype_idx.device)
 
     # [*, N, 8, 4, 4]
     res_default_frame = default_frame[restype_idx, ...]

@@ -8,7 +8,7 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.dense.linear import Linear
 from torch_geometric.utils import softmax
 
-from geometry import Rigid, Rotation
+from write_preds_pdb.geometry import Rigid, Rotation
 from write_preds_pdb.geometry import loc_invert_rot_mul_vec, loc_rigid_mul_vec
 from model.utils1 import ipa_point_weights_init_
 
@@ -78,7 +78,7 @@ class GraphIPA(MessagePassing, ABC):
         rot = torch.cat([rigid.rot.get_rot_mat() for rigid in r], 0)
         trans = torch.cat([rigid.trans for rigid in r], 0)
         loc = torch.cat([rigid.loc for rigid in r], 0)
-        r = Rigid(Rotation(rot), trans, loc)
+        r = Rigid(Rotation(rot), trans, loc).cuda()
 
         # [N, 2* H * C_hidden]
         src_kv = self.lin_src_kv(x)

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from functools import lru_cache
 from typing import Tuple, Any, Sequence, Optional
 
+
 class Rotation:
 
     def __init__(self, rot_mats: Optional[torch.Tensor]):
@@ -176,19 +177,19 @@ class Rigid:
         new_loc = self.loc * right[...,None]
         return Rigid(new_rots, new_trans,new_loc)
 
-    def edge(self, edge_index):
+    def edge(self):
 
         """
         Forming fully connected graph edge using the rigid object
         """
-        rot_T = self.rot[edge_index[0]].transpose()
-        rot = self.rot[edge_index[1]].get_rot_mat()
-        orientation = torch.einsum('mij,mjk->mik', rot_T, rot)
+        rot_T = self.rot.transpose()
+        rot = self.rot.get_rot_mat()
+        orientation = torch.einsum('bmij,bnjk->bmnik', rot_T, rot).float()
 
-        displacement =  self.loc[edge_index[0]] - self.loc[edge_index[1]]
+        displacement =  self.loc[...,None,:,:] - self.loc[...,None,:]
         distance = torch.linalg.vector_norm(displacement,dim=-1).float() 
         direction = F.normalize(displacement,dim=-1).float()
-        altered_direction = rot_vec(rot_T, direction) # why write this? dont know why
+        altered_direction = rot_vec(rot_T[...,None,:,:], direction).float()
 
         return distance, altered_direction, orientation
 
@@ -300,12 +301,12 @@ def identity_trans(
 
 def Rigid_mult(rigid_1: Rigid,
                rigid_2: Rigid) -> Rigid:
-    rot1 = rigid_1.rot.get_rot_mat()
-    rot2 = rigid_2.rot.get_rot_mat()
+    rot1 = rigid_1.rot.get_rot_mat().to('cuda')
+    rot2 = rigid_2.rot.get_rot_mat().to('cuda')
 
     new_rot = rot_matmul(rot1, rot2)
-    new_trans = rot_vec(rot1, rigid_2.trans)  + rigid_1.trans
-    new_loc = rot_vec(rot1, rigid_2.loc) + rigid_1.trans
+    new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
+    new_loc = rot_vec(rot1, rigid_2.loc.to('cuda')) + rigid_1.trans.to('cuda')
 
     return  Rigid(Rotation(new_rot), new_trans, new_loc)
 

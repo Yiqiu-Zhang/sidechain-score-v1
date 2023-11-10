@@ -442,7 +442,7 @@ class RigidDiffusion(nn.Module):
         # [N_rigid, c_n/3]
         node_emb = self.structure_update(data, init_node_emb, pair_emb)
 
-        rigid_graph_index = torch.arange(0, len(data.aatype)).unsqueeze(-1).repeat(1, 5).reshape(-1)
+        rigid_graph_index = torch.arange(0, len(data.aatype)).unsqueeze(-1).repeat(1, 5).reshape(-1).cuda()
         rigid_graph_index = rigid_graph_index[data.rigid_mask]
 
         residue_emb = torch_scatter.scatter_mean(node_emb, rigid_graph_index, dim=0)

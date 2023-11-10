@@ -142,7 +142,7 @@ def sample(
     m = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
     corrupted_angles = m.sample((batch,
                         seq.shape[-1], # sequence length
-                        model.n_inputs))
+                        ))
 
     # Produces (timesteps, batch_size, seq_len, n_ft)
     this_lengths =  [seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1], seq.shape[-1], seq.shape[-1],seq.shape[-1], seq.shape[-1]]

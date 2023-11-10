@@ -3,7 +3,7 @@ from typing import Sequence, Optional
 import string
 
 
-import constant
+import write_preds_pdb.constant as constant
 import numpy as np
 import io
 from Bio.PDB import PDBParser

@@ -58,58 +58,15 @@ class AngleDiffusionBase(nn.Module):
     Our Model
     """
 
-    # Define loss functions and their wrapped angular versions
-    nonangular_loss_fn_dict = {
-        "l1": F.l1_loss,
-        "smooth_l1": F.smooth_l1_loss,
-    }
-    angular_loss_fn_dict = {
-        "l1": losses.radian_l1_loss,
-        "smooth_l1": functools.partial(
-            losses.radian_smooth_l1_loss, beta=torch.pi / 10
-        ),
-        #========================new loss==============================
-        "sin_cos": losses.square_chi_loss,
-        "square_chi_loss_with_periodic": losses.square_chi_loss_with_periodic,
-        "score_loss": losses.score_loss
-        #========================new loss==============================
-    }
-    # To have legacy models still work with these
-    loss_autocorrect_dict = {
-        "radian_l1_smooth": "smooth_l1",
-    }
+    def __init__(self) -> None:
 
-    def __init__(
-        self,
-        config,
-        ft_is_angular: List[bool] = [True, True, True, True],
-        ft_names: Optional[List[str]] = None,
-        time_encoding: TIME_ENCODING = "gaussian_fourier",
-        d_model: int = 384,
-        d_esm_seq: int = 320,
-        n_rigid_type: int = 20,
-        n_rigid_property: int = 6,
-        n_layers: int = 4,
-        n_heads: int = 8,
-        d_ff: int = 1024, #hidden layer dim
-        d_angles:int = 4,
-        max_seq_len: int = 5000,
-        dropout: float = 0.1,
-        pred_all: bool = False,
-    ) -> None:
         """
         dim should be the dimension of the inputs
         """
         super().__init__()  
-        self.pred_all = pred_all
-        self.config = config
-        self.ft_is_angular = ft_is_angular
-        n_inputs = len(ft_is_angular)
-        self.n_inputs = n_inputs
 
         self.encoder = RigidDiffusion()
 
-        # Epoch counters and timers
         self.train_epoch_counter = 0
         self.train_epoch_last_time = time.time()
 
@@ -117,7 +74,6 @@ class AngleDiffusionBase(nn.Module):
     def from_dir(
         cls,
         dirname: str,
-        ft_is_angular: Optional[Sequence[bool]] = None,
         load_weights: bool = True,
         idx: int = -1,
         best_by: Literal["train", "valid"] = "valid",
@@ -132,21 +88,12 @@ class AngleDiffusionBase(nn.Module):
         train_args_fname = os.path.join(dirname, "training_args.json")
         with open(train_args_fname, "r") as source:
             train_args = json.load(source)
-        config = BertConfig.from_json_file(os.path.join(dirname, "config.json"))
-
-        if ft_is_angular is None:
-            ft_is_angular = FEATURE_SET_NAMES_TO_ANGULARITY[
-                train_args["angles_definitions"]
-            ]
-            logging.info(f"Auto constructed ft_is_angular: {ft_is_angular}")
 
         # Handles the case where we repurpose the time encoding for seq len encoding in the AR model
         time_encoding_key = (
             "time_encoding" if "time_encoding" in train_args else "seq_len_encoding"
         )
         model_args = dict(
-            config=config,
-            ft_is_angular=ft_is_angular,
             time_encoding=train_args[time_encoding_key],
             #dropout = 0.1
             # lr=train_args["lr"],
@@ -184,7 +131,6 @@ class AngleDiffusionBase(nn.Module):
             copy_to = Path(copy_to)
             with open(copy_to / "training_args.json", "w") as sink:
                 json.dump(train_args, sink)
-            config.save_pretrained(copy_to)
             if load_weights:
                 # Create the direcotry structure
                 ckpt_dir = copy_to / "models" / subfolder
@@ -207,14 +153,12 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
     def __init__(
         self,
         lr: float = 5e-5,
-        loss: Union[Callable, LOSS_KEYS] = "square_chi_loss_with_periodic", # loss is str or function
-        use_pairwise_dist_loss: Union[float, Tuple[float, float, int]] = 0.0,
         l2: float = 0.0,
         l1: float = 0.0,
         circle_reg: float = 0.0,
         epochs: int = 10,
         steps_per_epoch: int = 250,  # Dummy value
-        diffusion_fraction: float = 0.7,
+        #diffusion_fraction: float = 0.7,
         lr_scheduler: LR_SCHEDULE = None,
         write_preds_to_dir: Optional[str] = None,
         **kwargs,
@@ -223,36 +167,9 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         """Feed args to BertForDiffusionBase and then feed the rest into"""
         AngleDiffusionBase.__init__(self, **kwargs)
         # Store information about leraning rates and loss
-        self.diffusion_fraction = diffusion_fraction
+        #self.diffusion_fraction = diffusion_fraction
         self.learning_rate = lr
-        # loss function is either a callable or a list of callables
-        if isinstance(loss, str):
-            logging.info(
-                f"Mapping loss {loss} to list of losses corresponding to angular {self.ft_is_angular}"
-            )
-            if loss in self.loss_autocorrect_dict:
-                logging.info(
-                    "Autocorrecting {} to {}".format(
-                        loss, self.loss_autocorrect_dict[loss]
-                    )
-                )
-                loss = self.loss_autocorrect_dict[loss]  # 等号左侧的loss为str，右侧的也为str
-            self.loss_func = [
-                self.angular_loss_fn_dict[loss]
 
-            ]
-        else:
-            logging.warning(
-                f"Using pre-given callable loss: {loss}. This may not handle angles correctly!"
-            )
-            self.loss_func = loss
-        pl.utilities.rank_zero_info(f"Using loss: {self.loss_func}")
-        if isinstance(self.loss_func, (tuple, list)):
-            assert (
-                len(self.loss_func) == self.n_inputs
-            ), f"Got {len(self.loss_func)} loss functions, expected {self.n_inputs}"
-
-        self.use_pairwise_dist_loss = use_pairwise_dist_loss
         self.l1_lambda = l1
         self.l2_lambda = l2
         self.circle_lambda = circle_reg
@@ -276,9 +193,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
 
         predicted_score = self.forward(data)
 
-        loss_fn = self.angular_loss_fn_dict['score_loss']
-
-        loss = loss_fn(predicted_score, data)
+        loss = losses.score_loss(predicted_score, data)
 
         return loss
 
@@ -286,11 +201,9 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         """
         Training step, runs once per batch
         """
-       # torch.autograd.set_detect_anomaly(True)
 
         avg_loss = self._get_loss_terms_grad(batch)
-        
-        self.log("train_loss", avg_loss, on_epoch=True)
+        self.log("train_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
 
         return avg_loss
 
@@ -304,7 +217,6 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f} ({t_delta:.2f} seconds)"
         )
         # Increment counter and timers
-        #print("============hparams==============", self.hparams)
         self.train_epoch_counter += 1
         self.train_epoch_last_time = time.time()
 
@@ -316,7 +228,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             avg_loss = self._get_loss_terms_grad(batch)
             self.write_preds_counter += 1
 
-        self.log("val_loss", avg_loss, on_epoch=True)
+        self.log("val_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
         return avg_loss
 
     def validation_epoch_end(self, outputs) -> None:

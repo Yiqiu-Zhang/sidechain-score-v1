@@ -2,12 +2,11 @@ import numpy as np
 import torch
 
 restypes = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P',
-            'S', 'T', 'W', 'Y', 'V', 'X'] # with the UNK residue
+            'S', 'T', 'W', 'Y', 'V', 'X']  # with the UNK residue
 
 restype_order = {restype: i for i, restype in enumerate(restypes)}
 
-
-restype_num = len(restypes) # 20 # Now 21 with UNK res
+restype_num = len(restypes)  # 20 # Now 21 with UNK res
 
 restype_1to3 = {
     'A': 'ALA',
@@ -30,7 +29,7 @@ restype_1to3 = {
     'W': 'TRP',
     'Y': 'TYR',
     'V': 'VAL',
-    'X': 'UNK', #With UNK res as a restype
+    'X': 'UNK',  # With UNK res as a restype
 }
 restype_3to1 = {v: k for k, v in restype_1to3.items()}
 
@@ -38,27 +37,27 @@ restype_3to1 = {v: k for k, v in restype_1to3.items()}
 # pylint: disable=line-too-long
 # pylint: disable=bad-whitespace
 restype_name_to_atom14_names = {
-    'ALA': ['N', 'CA', 'C', 'O', 'CB', '',    '',    '',    '',    '',    '',    '',    '',    ''],
-    'ARG': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  'NE',  'CZ',  'NH1', 'NH2', '',    '',    ''],
-    'ASN': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'OD1', 'ND2', '',    '',    '',    '',    '',    ''],
-    'ASP': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'OD1', 'OD2', '',    '',    '',    '',    '',    ''],
-    'CYS': ['N', 'CA', 'C', 'O', 'CB', 'SG',  '',    '',    '',    '',    '',    '',    '',    ''],
-    'GLN': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  'OE1', 'NE2', '',    '',    '',    '',    ''],
-    'GLU': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  'OE1', 'OE2', '',    '',    '',    '',    ''],
-    'GLY': ['N', 'CA', 'C', 'O', '',   '',    '',    '',    '',    '',    '',    '',    '',    ''],
-    'HIS': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'ND1', 'CD2', 'CE1', 'NE2', '',    '',    '',    ''],
-    'ILE': ['N', 'CA', 'C', 'O', 'CB', 'CG1', 'CG2', 'CD1', '',    '',    '',    '',    '',    ''],
-    'LEU': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD1', 'CD2', '',    '',    '',    '',    '',    ''],
-    'LYS': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  'CE',  'NZ',  '',    '',    '',    '',    ''],
-    'MET': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'SD',  'CE',  '',    '',    '',    '',    '',    ''],
-    'PHE': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD1', 'CD2', 'CE1', 'CE2', 'CZ',  '',    '',    ''],
-    'PRO': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  '',    '',    '',    '',    '',    '',    ''],
-    'SER': ['N', 'CA', 'C', 'O', 'CB', 'OG',  '',    '',    '',    '',    '',    '',    '',    ''],
-    'THR': ['N', 'CA', 'C', 'O', 'CB', 'OG1', 'CG2', '',    '',    '',    '',    '',    '',    ''],
-    'TRP': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
-    'TYR': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD1', 'CD2', 'CE1', 'CE2', 'CZ',  'OH',  '',    ''],
-    'VAL': ['N', 'CA', 'C', 'O', 'CB', 'CG1', 'CG2', '',    '',    '',    '',    '',    '',    ''],
-    'UNK': ['N', 'CA', 'C', 'O', 'CB',   '',    '',    '',    '',    '',    '',    '',    '',    ''], # 给侧链原子
+    'ALA': ['N', 'CA', 'C', 'O', 'CB', '', '', '', '', '', '', '', '', ''],
+    'ARG': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2', '', '', ''],
+    'ASN': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'OD1', 'ND2', '', '', '', '', '', ''],
+    'ASP': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'OD1', 'OD2', '', '', '', '', '', ''],
+    'CYS': ['N', 'CA', 'C', 'O', 'CB', 'SG', '', '', '', '', '', '', '', ''],
+    'GLN': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'OE1', 'NE2', '', '', '', '', ''],
+    'GLU': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'OE1', 'OE2', '', '', '', '', ''],
+    'GLY': ['N', 'CA', 'C', 'O', '', '', '', '', '', '', '', '', '', ''],
+    'HIS': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'ND1', 'CD2', 'CE1', 'NE2', '', '', '', ''],
+    'ILE': ['N', 'CA', 'C', 'O', 'CB', 'CG1', 'CG2', 'CD1', '', '', '', '', '', ''],
+    'LEU': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2', '', '', '', '', '', ''],
+    'LYS': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', 'CE', 'NZ', '', '', '', '', ''],
+    'MET': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'SD', 'CE', '', '', '', '', '', ''],
+    'PHE': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', '', '', ''],
+    'PRO': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD', '', '', '', '', '', '', ''],
+    'SER': ['N', 'CA', 'C', 'O', 'CB', 'OG', '', '', '', '', '', '', '', ''],
+    'THR': ['N', 'CA', 'C', 'O', 'CB', 'OG1', 'CG2', '', '', '', '', '', '', ''],
+    'TRP': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
+    'TYR': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH', '', ''],
+    'VAL': ['N', 'CA', 'C', 'O', 'CB', 'CG1', 'CG2', '', '', '', '', '', '', ''],
+    'UNK': ['N', 'CA', 'C', 'O', 'CB', '', '', '', '', '', '', '', '', ''],  # 给侧链原子
 
 }
 
@@ -221,17 +220,17 @@ residues_atom_position = {
         ['CE2', 5, (2.098, -1.201, -0.000)],
         ['CZ', 5, (2.794, -0.003, -0.001)],
     ],
-    'PRO': [ # We set all the PRO atom into one rigid group which leave the chi angle constant
+    'PRO': [  # We set all the PRO atom into one rigid group which leave the chi angle constant
         ['N', 0, (-0.566, 1.351, -0.000)],
         ['CA', 0, (0.000, 0.000, 0.000)],
         ['C', 0, (1.527, -0.000, 0.000)],
         ['CB', 0, (-0.546, -0.611, -1.293)],
         ['O', 3, (0.621, 1.066, 0.000)],
-        ['CG', 0, (-1.833,  0.0971, -1.498)], # from group 5 to group 0
-        ['CD', 0, (-1.663 ,  1.492, -0.962)],  # from group 5 to group 0
-        #['CG', 4, (0.382, 1.445, 0.0)], # from group 5 to group 0
-        #['CD', 0, (0.427, 1.440, 0.0)], # from group 5 to group 0, using the correct angle.
-        #['CD', 5, (0.477, 1.424, 0.0)],  # manually made angle 2 degrees larger
+        ['CG', 0, (-1.833, 0.0971, -1.498)],  # from group 5 to group 0
+        ['CD', 0, (-1.663, 1.492, -0.962)],  # from group 5 to group 0
+        # ['CG', 4, (0.382, 1.445, 0.0)], # from group 5 to group 0
+        # ['CD', 0, (0.427, 1.440, 0.0)], # from group 5 to group 0, using the correct angle.
+        # ['CD', 5, (0.477, 1.424, 0.0)],  # manually made angle 2 degrees larger
     ],
     'SER': [
         ['N', 0, (-0.529, 1.360, -0.000)],
@@ -289,10 +288,10 @@ residues_atom_position = {
         ['CG1', 4, (0.540, 1.429, -0.000)],
         ['CG2', 4, (0.533, -0.776, 1.203)],
     ],
-    'UNK': [ # Adding Atom for UNK residues, as UNK can be different res, here
-             # I am naively using ALA's atom position. Notice that this can be wrong
-             # when we Modify the Main chain position
-             # 算主链的时候要注意这个，UNK 用不同的氨基酸原子位置可能导致其他res的位置不准确
+    'UNK': [  # Adding Atom for UNK residues, as UNK can be different res, here
+        # I am naively using ALA's atom position. Notice that this can be wrong
+        # when we Modify the Main chain position
+        # 算主链的时候要注意这个，UNK 用不同的氨基酸原子位置可能导致其他res的位置不准确
         ['N', 0, (-0.525, 1.363, 0.000)],
         ['CA', 0, (0.000, 0.000, 0.000)],
         ['C', 0, (1.526, -0.000, -0.000)],
@@ -303,26 +302,26 @@ residues_atom_position = {
 
 restype_name_to_rigid_idx = {
     "ALA": [2],
-    "ARG": [1,8,8,8,18], #  [1,8,8,19,20]
-    "ASN": [1,8,15],
-    "ASP": [1,8,14],
-    "CYS": [1,6],
-    "GLN": [1,8,8,15],
-    "GLU": [1,8,8,14],
+    "ARG": [1, 8, 8, 8, 18],  # [1,8,8,19,20]
+    "ASN": [1, 8, 15],
+    "ASP": [1, 8, 14],
+    "CYS": [1, 6],
+    "GLN": [1, 8, 8, 15],
+    "GLU": [1, 8, 8, 14],
     "GLY": [1],
-    "HIS": [1,8,16],
-    "ILE": [1,7,9], # [1,9,10]
-    "LEU": [1,8,7],
-    "LYS": [1,8,8,8,17],
-    "MET": [1,8,8,10], # [1,8,8,11]
-    "PHE": [1,8,11],
+    "HIS": [1, 8, 16],
+    "ILE": [1, 7, 9],  # [1,9,10]
+    "LEU": [1, 8, 7],
+    "LYS": [1, 8, 8, 8, 17],
+    "MET": [1, 8, 8, 10],  # [1,8,8,11]
+    "PHE": [1, 8, 11],
     "PRO": [3],
-    "SER": [1,4],
-    "THR": [1,5],
-    "TRP": [1,8,13],
-    "TYR": [1,8,12],
-    "VAL": [1,7],
-    "UNK": [1], #给 UNKNOWN res 只添加主链 rigid 其他原子先不管
+    "SER": [1, 4],
+    "THR": [1, 5],
+    "TRP": [1, 8, 13],
+    "TYR": [1, 8, 12],
+    "VAL": [1, 7],
+    "UNK": [1],  # 给 UNKNOWN res 只添加主链 rigid 其他原子先不管
 }
 '''
 type 0: mask type
@@ -344,25 +343,25 @@ Acid 14
 Chain 7,8
 '''
 rigid_type_property = [
-    [0,0,0,0,0,0,0], # Mask with no type
-    [1,0,1,0,0,0,0],# 1
-    [1,0,1,0,0,0,0],# 2
-    [1,0,1,0,0,0,0],# 3
-    [0,1,0,0,0,0,0],# 4
-    [0,1,0,0,0,0,0],# 5
-    [0,1,0,0,0,0,0],# 6
-    [0,0,1,0,0,0,1],# 7
-    [0,0,0,0,0,0,1],# 8
-    [0,0,1,0,0,0,0],# 9
-    [0,0,1,0,0,0,0],# 10
-    [0,0,1,1,0,0,0],# 11
-    [0,1,0,1,0,0,0],# 12
-    [0,0,1,1,0,0,0],# 13
-    [0,0,0,0,0,1,0],# 14
-    [0,1,0,0,0,0,0],# 15
-    [0,0,0,1,1,0,0],# 16
-    [0,0,0,0,1,0,0],# 17
-    [0,0,0,0,1,0,0],# 18
+    [0, 0, 0, 0, 0, 0, 0],  # Mask with no type
+    [1, 0, 1, 0, 0, 0, 0],  # 1
+    [1, 0, 1, 0, 0, 0, 0],  # 2
+    [1, 0, 1, 0, 0, 0, 0],  # 3
+    [0, 1, 0, 0, 0, 0, 0],  # 4
+    [0, 1, 0, 0, 0, 0, 0],  # 5
+    [0, 1, 0, 0, 0, 0, 0],  # 6
+    [0, 0, 1, 0, 0, 0, 1],  # 7
+    [0, 0, 0, 0, 0, 0, 1],  # 8
+    [0, 0, 1, 0, 0, 0, 0],  # 9
+    [0, 0, 1, 0, 0, 0, 0],  # 10
+    [0, 0, 1, 1, 0, 0, 0],  # 11
+    [0, 1, 0, 1, 0, 0, 0],  # 12
+    [0, 0, 1, 1, 0, 0, 0],  # 13
+    [0, 0, 0, 0, 0, 1, 0],  # 14
+    [0, 1, 0, 0, 0, 0, 0],  # 15
+    [0, 0, 0, 1, 1, 0, 0],  # 16
+    [0, 0, 0, 0, 1, 0, 0],  # 17
+    [0, 0, 0, 0, 1, 0, 0],  # 18
 ]
 
 # Mask the useless chi angle for each residue. 1 means used, 0 means useless.
@@ -405,7 +404,7 @@ restype_frame_mask = [
     [1.0, 1.0, 1.0, 1.0, 1.0],  # LYS
     [1.0, 1.0, 1.0, 1.0, 0.0],  # MET
     [1.0, 1.0, 1.0, 0.0, 0.0],  # PHE
-    [1.0, 0.0, 0.0, 0.0, 0.0],  # PRO 
+    [1.0, 0.0, 0.0, 0.0, 0.0],  # PRO
     [1.0, 1.0, 0.0, 0.0, 0.0],  # SER
     [1.0, 1.0, 0.0, 0.0, 0.0],  # THR
     [1.0, 1.0, 1.0, 0.0, 0.0],  # TRP
@@ -462,7 +461,6 @@ chi_pi_periodic = [
     [0.0, 0.0, 0.0, 0.0],  # VAL
     [0.0, 0.0, 0.0, 0.0],  # UNK
 ]
-
 
 # Format: The list for each AA type contains chi1, chi2, chi3, chi4 in
 # this order (or a relevant subset from chi1 onwards). ALA and GLY don't have
@@ -541,7 +539,6 @@ atom_types = [
 atom_order = {atom_type: i for i, atom_type in enumerate(atom_types)}
 atom_type_num = len(atom_types)  # := 37.
 
-
 # create an array with (restype, atomtype) --> rigid_group_idx
 # and an array with (restype, atomtype, coord) for the atom positions
 # and compute affine transformation matrices (4,4) from one rigid group to the
@@ -552,33 +549,33 @@ restype_atom14_rigid_group_positions = np.zeros([21, 14, 3], dtype=np.float32)
 restype_rigid_group_default_frame = np.zeros([21, 8, 5, 5], dtype=np.float32)
 restype_atom37_mask = np.zeros([21, 37], dtype=np.float32)
 
+
 def make_rigid_trans(ex, y_vec, t, p):
     """Create rigid rotation and translation matrix with the given axis and translation vec
     Return a  4x4 numpy array"""
 
-    ex_norm = ex/ np.linalg.norm(ex)
+    ex_norm = ex / np.linalg.norm(ex)
 
     ey = y_vec - np.dot(y_vec, ex_norm) * ex_norm
-    ey_norm = ey/ np.linalg.norm(ey)
+    ey_norm = ey / np.linalg.norm(ey)
 
     ez_norm = np.cross(ex_norm, ey_norm)
     loc = t + p
     m = np.stack([ex_norm, ey_norm, ez_norm, t, loc]).transpose()
 
-    m = np.concatenate([m, [[0.0, 0.0, 0.0, 1.0, 0.0],[0.0, 0.0, 0.0, 0.0, 1.0]]], axis=0)
+    m = np.concatenate([m, [[0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0]]], axis=0)
 
     return m
 
 
 def _make_rigid_group_constants():
     """Make rigid frames separated by torsion angles for each residue."""
-    
+
     for residx, restype1 in enumerate(restypes):
         restype3 = restype_1to3[restype1]
         res_atom_position = {name: np.array(pos) for name, _, pos in residues_atom_position[restype3]}
 
         for atomname, group_idx, atom_position in residues_atom_position[restype3]:
-
             atomtype = atom_order[atomname]
             restype_atom37_mask[residx, atomtype] = 1
 
@@ -587,16 +584,13 @@ def _make_rigid_group_constants():
             restype_atom14_mask[residx, atom14idx] = 1
             restype_atom14_rigid_group_positions[residx, atom14idx, :] = atom_position
 
-
         # backbone to backbone is the identity transform
         restype_rigid_group_default_frame[residx, 0, :, :] = np.eye(5)
-
 
         # pre-omega-frame to backbone (currently dummy identity matrix)
         restype_rigid_group_default_frame[residx, 1, :, :] = np.eye(5)
         restype_rigid_group_default_frame[residx, 2, :, :] = np.eye(5)
         restype_rigid_group_default_frame[residx, 3, :, :] = np.eye(5)
-
 
         '''
         主链原子坐标暂时不由frame计算，因为这种计算方式忽略了肽键的存在，
@@ -624,10 +618,10 @@ def _make_rigid_group_constants():
                 res_atom_position[name] for name in base_atom_names
             ]
             mat = make_rigid_trans(
-                ex=base_atom_positions[2] - base_atom_positions[1], # CB position in CA frame
-                y_vec=base_atom_positions[0] - base_atom_positions[1], # N direction, ex and ey are the N CA CB plain
-                t=base_atom_positions[2], # CB position in CA frame
-                p=base_atom_positions[3] # CG poisiton in CB frame
+                ex=base_atom_positions[2] - base_atom_positions[1],  # CB position in CA frame
+                y_vec=base_atom_positions[0] - base_atom_positions[1],  # N direction, ex and ey are the N CA CB plain
+                t=base_atom_positions[2],  # CB position in CA frame
+                p=base_atom_positions[3]  # CG poisiton in CB frame
             )
             restype_rigid_group_default_frame[residx, 4, :, :] = mat
 
@@ -637,23 +631,23 @@ def _make_rigid_group_constants():
         # luckily all rotation axes for the next frame start at (0,0,0) of the
         # previous frame
         for chi_idx in range(1, 4):
-            if chi_angles_mask[residx][chi_idx]: # ['CA', 'CB', 'CG', 'CD']
+            if chi_angles_mask[residx][chi_idx]:  # ['CA', 'CB', 'CG', 'CD']
                 axis_end_atom_name = chi_angles_atoms[restype3][chi_idx][2]
                 tail_atom_name = chi_angles_atoms[restype3][chi_idx][3]
                 axis_end_atom_position = res_atom_position[axis_end_atom_name]
                 tail_atom_position = res_atom_position[tail_atom_name]
                 mat = make_rigid_trans(
-                    ex=axis_end_atom_position, # CG position based on CB frame
-                    y_vec=np.array([-1.0, 0.0, 0.0]), # - the previous rotation axis
-                    t=axis_end_atom_position, # CG position based on CB frame
+                    ex=axis_end_atom_position,  # CG position based on CB frame
+                    y_vec=np.array([-1.0, 0.0, 0.0]),  # - the previous rotation axis
+                    t=axis_end_atom_position,  # CG position based on CB frame
                     p=tail_atom_position
                 )
                 restype_rigid_group_default_frame[
-                    residx, 4 + chi_idx, :, :
+                residx, 4 + chi_idx, :, :
                 ] = mat
 
+
 def make_atom14_37_list():
-    
     restype_atom14_to_atom37 = []
     restype_atom37_to_atom14 = []
 
@@ -668,12 +662,13 @@ def make_atom14_37_list():
             (atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0)
             for name in atom_types
         ])
-        
+
     restype_atom37_to_atom14 = np.array(restype_atom37_to_atom14)
-        
+
     restype_atom37_to_atom14 = torch.tensor(restype_atom37_to_atom14)
-    
+
     return restype_atom37_to_atom14
+
 
 _make_rigid_group_constants()
 

@@ -263,8 +263,8 @@ def score_loss(predicted_score: torch.Tensor, data  ):
     score_norm = torus_score.score_norm(sigma_idx, chi_pi_periodic)
 
     loss = mask_mean(data.chi_mask,
-                    (score.to('cuda') - predicted_score.to('cuda')) ** 2 / score_norm.to('cuda'),
-                     dim=(-1, -2, -3))
+                    (score - predicted_score) ** 2 / score_norm,
+                    dim=(-1, -2))
     '''
     angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
     # [B, N_rigid]

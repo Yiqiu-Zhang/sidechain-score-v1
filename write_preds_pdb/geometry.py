@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from functools import lru_cache
 from typing import Tuple, Any, Sequence, Optional
 
-
 class Rotation:
 
     def __init__(self, rot_mats: Optional[torch.Tensor]):
@@ -177,19 +176,19 @@ class Rigid:
         new_loc = self.loc * right[...,None]
         return Rigid(new_rots, new_trans,new_loc)
 
-    def edge(self):
+    def edge(self, edge_index):
 
         """
         Forming fully connected graph edge using the rigid object
         """
-        rot_T = self.rot.transpose()
-        rot = self.rot.get_rot_mat()
-        orientation = torch.einsum('bmij,bnjk->bmnik', rot_T, rot).float()
+        rot_T = self.rot[edge_index[0]].transpose()
+        rot = self.rot[edge_index[1]].get_rot_mat()
+        orientation = torch.einsum('mij,mjk->mik', rot_T, rot)
 
-        displacement =  self.loc[...,None,:,:] - self.loc[...,None,:]
+        displacement =  self.loc[edge_index[0]] - self.loc[edge_index[1]]
         distance = torch.linalg.vector_norm(displacement,dim=-1).float() 
         direction = F.normalize(displacement,dim=-1).float()
-        altered_direction = rot_vec(rot_T[...,None,:,:], direction).float()
+        altered_direction = rot_vec(rot_T, direction) # why write this? dont know why
 
         return distance, altered_direction, orientation
 
@@ -208,7 +207,30 @@ class Rigid:
 
         s = self.trans.shape[:-1]
         return s
+    
+    @property
+    def device(self) -> torch.device:
+        """
+            The device of the underlying rotation
 
+            Returns:
+                The device of the underlying rotation
+        """
+        if(self.rot_mats is not None):
+            assert self.rot_mats.device == self.loc.device
+            return self.rot_mats.device
+        else:
+            raise ValueError("Both rotations are None")
+
+    def cuda(self) -> Rigid:
+        """
+            Moves the transformation object to GPU memory
+            
+            Returns:
+                A version of the transformation on GPU
+        """
+        return Rigid(Rotation(self.rot.get_rot_mat().cuda()), self.trans.cuda(),self.loc.cuda())
+    
     @staticmethod
     def from_3_points(
         p_neg_x_axis: torch.Tensor,
@@ -301,12 +323,12 @@ def identity_trans(
 
 def Rigid_mult(rigid_1: Rigid,
                rigid_2: Rigid) -> Rigid:
-    rot1 = rigid_1.rot.get_rot_mat().to('cuda')
-    rot2 = rigid_2.rot.get_rot_mat().to('cuda')
+    rot1 = rigid_1.rot.get_rot_mat()
+    rot2 = rigid_2.rot.get_rot_mat()
 
     new_rot = rot_matmul(rot1, rot2)
-    new_trans = rot_vec(rot1, rigid_2.trans.to('cuda'))  + rigid_1.trans.to('cuda')
-    new_loc = rot_vec(rot1, rigid_2.loc.to('cuda')) + rigid_1.trans.to('cuda')
+    new_trans = rot_vec(rot1, rigid_2.trans)  + rigid_1.trans
+    new_loc = rot_vec(rot1, rigid_2.loc) + rigid_1.trans
 
     return  Rigid(Rotation(new_rot), new_trans, new_loc)
 

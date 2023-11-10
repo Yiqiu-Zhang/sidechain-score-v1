@@ -1,7 +1,7 @@
 import copy
 
 from data_preprocessing import protein_to_graph
-import structure_build
+import write_preds_pdb.structure_build_score as structure_build
 
 import torch
 import numpy as np
@@ -10,7 +10,7 @@ import pickle
 from torch import nn
 from torch_geometric.data import Dataset, DataLoader, lightning
 from torch_geometric.transforms import BaseTransform
-import torch_cluster
+import scipy
 
 def relpos(rigid_res_index, edge_index):
 
@@ -43,6 +43,32 @@ def rbf(D, D_min=0., D_max=20., D_count=16):
 
     return RBF
 
+def knn_graph(x, k):
+
+    batch_x = x.new_zeros(x.size(0), dtype=torch.long)
+
+    # Rescale x and y.
+    min_x = x.min().item()
+    x  = x - min_x
+
+    max_x = x.max().item()
+    x = x / max_x
+
+    x = torch.cat([x, 2 * x.size(1) * batch_x.view(-1, 1).to(x.dtype)], dim=-1)
+
+    tree = scipy.spatial.cKDTree(x.detach().cpu().numpy())
+
+    dist, col = tree.query(
+        x.detach().cpu(), k=k, distance_upper_bound=x.size(1))
+    
+    dist = torch.from_numpy(dist).to(x.dtype)
+    col = torch.from_numpy(col).to(torch.long)
+    row = torch.arange(col.size(0), dtype=torch.long).view(-1, 1).repeat(1, k)
+    mask = 1 - torch.isinf(dist).view(-1).long()
+    row, col = row.view(-1)[mask], col.view(-1)[mask]
+
+    return torch.stack([row, col], dim=0)
+    
 def transform_structure(protein, noise):
 
     # Edge_feature
@@ -51,7 +77,7 @@ def transform_structure(protein, noise):
     rigids = structure_build.torsion_to_frame(angle_sin_cos, protein)
     # this is [N_rigid]
 
-    edge_index = torch_cluster.knn_graph(rigids.loc, k=32)
+    edge_index = knn_graph(rigids.loc, k=32)
 
     distance, altered_direction, orientation = rigids.edge(edge_index)
 
@@ -160,13 +186,3 @@ def construct_loader(args, modes=('train', 'val')):
         return loaders[0]
     else:
         return loaders
-
-full_data_name = 'cath_test.pkl'
-
-transform = TorsionNoiseTransform()
-
-dsets = [dataset.ProteinDataset(split = s,
-                               pickle_dir = full_data_name,
-                               transform = transform) for s in ('train', 'val')]
-
-datamodule = lightning.LightningDataset(train_dataset = dsets[0], val_dataset = dsets[1])
