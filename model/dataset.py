@@ -162,27 +162,3 @@ class ProteinDataset(Dataset):
             graph.append(protein_to_graph(protein))
 
         return graph
-
-
-def construct_loader(args, modes=('train', 'val')):
-    if isinstance(modes, str):
-        modes = [modes]
-
-    loaders = []
-    transform = TorsionNoiseTransform(sigma_min=args.sigma_min, sigma_max=args.sigma_max)
-
-    for mode in modes:
-        # Use __init__ to enitialize the data point, then define a transform function to change the conformer when called
-        dataset = ProteinDataset(split = mode,
-                                transform=transform,
-                                pickle_dir=args.raw_sturcture_dir)
-
-        loader = DataLoader(dataset=dataset,
-                            batch_size=args.batch_size,
-                            shuffle=False if mode == 'test' else True)
-        loaders.append(loader)
-
-    if len(loaders) == 1:
-        return loaders[0]
-    else:
-        return loaders
