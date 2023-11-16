@@ -1,6 +1,3 @@
-"""
-Script to sample from a trained diffusion model
-"""
 import multiprocessing
 import os, sys, shutil
 import pickle
@@ -19,15 +16,12 @@ from foldingdiff import sampling_score as sampling
 from model import dataset
 
 import glob
-sys.path.append(r"../write_preds_pdb")
-from structure_build_score import write_pdb_from_position
+from write_preds_pdb.structure_build_score import write_pdb_from_position
 
 
-sys.path.append(r"../foldingdiff")
-from ESM1b_embedding import add_esm1b_embedding
-from data_pipeline import process_pdb
+from foldingdiff.ESM1b_embedding import add_esm1b_embedding
+from foldingdiff.data_pipeline import process_pdb
 
-# :)
 SEED = int(
     float.fromhex("54616977616e20697320616e20696e646570656e64656e7420636f756e747279")
     % 10000
@@ -98,7 +92,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def get_pdb_data(CATH_DIR):
     
-    # fnames = glob.glob(os.path.join(CATH_DIR, "dompdb", "*"))
     fnames = glob.glob(os.path.join(CATH_DIR, "*"))
     structures = []
     pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
@@ -135,15 +128,9 @@ def main() -> None:
     
     torch.manual_seed(args.seed)
 
-    structures = get_pdb_data(args.CATH_DIR)
-    structures = add_esm1b_embedding(structures,16)
-
-    test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
-    with open(test_data_name, "wb") as f:
-        pickle.dump(structures, f)
-
+    #test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
     test_graph_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_graph.pkl'
-    data = dataset.ProteinDataset(cache = test_graph_name, pickle_dir = test_data_name)
+    data = dataset.ProteinDataset(cache = test_graph_name) #, pickle_dir = test_data_name
     test_loader = DataLoader(dataset=data, batch_size=1)
     
     outdir_pdb = outdir / "sampled_pdb"
@@ -156,7 +143,7 @@ def main() -> None:
             continue
 
         # [T, N, 4]
-        all_atom_positions = sampling.sample(model, protein, ramdom_sample, batch=10)
+        all_atom_positions = sampling.sample(model, protein, ramdom_sample)
 
         # Write the raw sampled items to csv files
         pdbname = Path(protein.fname[0]).name

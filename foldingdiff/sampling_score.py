@@ -12,7 +12,6 @@ import torch
 from torch import nn
 
 from write_preds_pdb import structure_build_score as structure_build
-from model.data_preprocessing import protein_to_graph
 from model.dataset import transform_structure
 
 
@@ -20,43 +19,51 @@ from model.dataset import transform_structure
 def p_sample_loop_score(
         model,
         protein,
+        ramdom_sample,
         sigma_max = torch.pi,
         sigma_min=0.01 * np.pi,
         steps=100,
 ):
-
+    
     sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cuda')
     eps = 1 / steps
 
-    for sigma in tqdm(sigma_schedule):
+    batched_position = []
 
-        protein.node_sigma = sigma * torch.ones(protein.num_nodes).to('cuda')
+    for _ in range(10):
 
-        score = model(protein)
+        corrupted_angles = ramdom_sample.sample(protein.true_chi.shape).cuda()
+        protein = transform_structure(protein, corrupted_angles)
 
-        g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min))).to('cuda')
-        z = torch.normal(mean=0, std=1, size= score.shape).to('cuda')
-        perturb = g ** 2 * eps * score + g * np.sqrt(eps) * z
+        protein.edge_attr = protein.edge_attr.cuda()
+        protein.edge_index = protein.edge_index.cuda()
+        protein.rigid = protein.rigid.cuda()
+        protein.local_rigid = protein.local_rigid.cuda()
 
-        perturb_sin_cos = torch.stack([torch.sin(perturb), torch.cos(perturb)], dim=-1).to('cuda')
-        rigid, local_rigid, all_frames_to_global = structure_build.torsion_to_frame(perturb_sin_cos, protein)
-        protein.rigid = rigid
-        protein.local_rigid = local_rigid
-            
-    all_atom_positions = structure_build.rigids_to_torsion_angles(protein.aatype, all_frames_to_global)
+        for sigma in tqdm(sigma_schedule):
 
-    # this is just for convinient use of the backbone coordinate
-    # [B, N, 37, 3] [B,N,4,3]
-    all_atom_positions[...,:3,:] = protein.bb_coord[...,:3,:]
-    all_atom_positions[...,4,:] = protein.bb_coord[...,3,:]
+            protein.node_sigma = sigma * torch.ones(protein.num_nodes).to('cuda')
 
-    return all_atom_positions
+            score = model(protein)
+
+            g = sigma * torch.sqrt(torch.tensor(2 * np.log(sigma_max / sigma_min))).to('cuda')
+            z = torch.normal(mean=0, std=1, size= score.shape).to('cuda')
+            perturb = g ** 2 * eps * score + g * np.sqrt(eps) * z
+
+            protein = transform_structure(protein, perturb)
+
+        all_atom_positions = structure_build.frame_to_pos(protein.all_frames_to_global, 
+                                                          protein.aatype,
+                                                          protein.bb_coord)
+
+        batched_position.append(all_atom_positions)
+
+    return batched_position
 
 def sample(
     model: nn.Module,
     protein, # a single data dictionary in the dataset
     ramdom_sample,
-    batch: int = 10,
 ) -> List[np.ndarray]:
 
     torch.cuda.empty_cache()
@@ -69,22 +76,7 @@ def sample(
     protein.rigid_mask = protein.rigid_mask.cuda()
     protein.x = protein.x.cuda()
 
-    batched_position = []
-
-    for _ in range(batch):
-
-        noise = ramdom_sample.sample(protein.true_chi.shape).cuda()
-        protein = transform_structure(protein, noise)
-
-        protein.edge_attr = protein.edge_attr.cuda()
-        protein.edge_index = protein.edge_index.cuda()
-        protein.rigid = protein.rigid.cuda()
-        protein.local_rigid = protein.local_rigid.cuda()
-        
-        # Produces (timesteps, batch_size, seq_len, n_ft)
-        all_atom_positions = p_sample_loop_score(model, protein)
-
-        batched_position.append(all_atom_positions)
+    batched_position = p_sample_loop_score(model, protein, ramdom_sample)
 
     return batched_position
 

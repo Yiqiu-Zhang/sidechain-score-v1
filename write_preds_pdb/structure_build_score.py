@@ -21,11 +21,12 @@ device1 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def rotate_sidechain(
         restype_idx: torch.Tensor,  # [*, N]
-        angles_sin_cos: torch.Tensor,  # [*,N,4，2]
+        angles: torch.Tensor,  # [*,N,4，2]
         last_local_r: geometry.Rigid,  # [*, N, 8] Rigid
 ) -> geometry.Rigid:
-    sin_angles = angles_sin_cos[..., 0]  # [*,N,4]
-    cos_angles = angles_sin_cos[..., 1]
+    
+    sin_angles = torch.sin(angles) 
+    cos_angles = torch.cos(angles)
 
     # [*,N,4] + [*,N,4] == [*,N,8]
     # adding 4 zero angles which means no change to the default value.
@@ -47,7 +48,7 @@ def rotate_sidechain(
         loc = torch.cat([rigid.loc for rigid in last_local_r], 0)
         last_local_r = geometry.Rigid(geometry.Rotation(rot), trans, loc).cuda()
 
-    all_rots = angles_sin_cos.new_zeros(last_local_r.rot.get_rot_mat().shape).to(sin_angles.device)
+    all_rots = sin_angles.new_zeros(last_local_r.rot.get_rot_mat().shape).to(sin_angles.device)
     # print("orign all_rots==",all_rots.shape)
     all_rots[..., 0, 0] = 1
     all_rots[..., 1, 1] = cos_angles
@@ -80,7 +81,7 @@ def rotate_sidechain(
     return all_frames_to_bb, all_frames
 
 
-def frame_to_pos(frames, aatype_idx):
+def frame_to_pos(frames, aatype_idx, bb_cords):
     # [21 , 14]
     group_index = torch.tensor(restype_atom14_to_rigid_group).to('cuda')
 
@@ -107,6 +108,13 @@ def frame_to_pos(frames, aatype_idx):
 
     pred_pos = geometry.rigid_mul_vec(map_atoms_to_global, default_pos)
     pred_pos = pred_pos * atom_mask
+
+    pred_pos, _ = atom14_to_atom37_batched(pred_pos, aatype_idx)
+
+    # this is just for convinient use of the backbone coordinate
+    # [B, N, 37, 3] [B,N,4,3]
+    pred_pos[...,:3,:] = bb_cords[...,:3,:]
+    pred_pos[...,4,:] = bb_cords[...,3,:]
 
     return pred_pos
 
@@ -252,7 +260,7 @@ def get_default_r(restype_idx):
     return default_r
 
 
-def torsion_to_frame(angles_sin_cos,
+def torsion_to_frame(angles,
                      protein
                      ):  # -> [*, N, 5] Rigid
     """Compute all residue frames given torsion
@@ -267,15 +275,9 @@ def torsion_to_frame(angles_sin_cos,
             all frames [N, 5] Rigid
         """
 
-    # side chain frames [*, N, 5] Rigid
-    # We create 3 dummy identity matrix for omega and other angles which is not used in the frame attention process
-
-    # if not given the local frame, use the initial default frame
-
     bb_to_gb = geometry.get_gb_trans(protein.bb_coord)
     
-
-    sc_to_bb, local_r = rotate_sidechain(protein.aatype, angles_sin_cos, protein.local_rigid)
+    sc_to_bb, local_r = rotate_sidechain(protein.aatype, angles, protein.local_rigid)
     all_frames_to_global = geometry.Rigid_mult(bb_to_gb[..., None], sc_to_bb)
 
     # [N_rigid] Rigid

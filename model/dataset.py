@@ -56,10 +56,7 @@ def knn_graph(x, k):
     
 def transform_structure(protein, noise):
 
-    # Edge_feature
-    angle_sin_cos = torch.stack([torch.sin(noise), torch.cos(noise)], dim=-1)
-
-    rigids, local_r, _ = structure_build.torsion_to_frame(angle_sin_cos, protein)
+    rigids, local_r, all_frames_to_global = structure_build.torsion_to_frame(noise, protein)
     # this is [N_rigid]
     k = 32 if protein.num_nodes >= 32 else protein.num_nodes
     edge_index, distance = knn_graph(rigids.loc, k)
@@ -81,6 +78,7 @@ def transform_structure(protein, noise):
     protein.edge_index = edge_index
     protein.rigid = rigids
     protein.local_rigid = local_r
+    protein.all_frames_to_global = all_frames_to_global
 
     return protein
 

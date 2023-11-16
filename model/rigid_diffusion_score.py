@@ -445,4 +445,4 @@ class RigidDiffusion(nn.Module):
         # [B, N_rigid, c_n] -->  [B, N_res,4]    
         score = self.score_predictor(residue_emb, init_residue_emb)
 
-        return score#, local_trans
+        return score
