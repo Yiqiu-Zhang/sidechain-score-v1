@@ -10,7 +10,6 @@ import pickle
 from torch import nn
 from torch_geometric.data import Dataset, DataLoader, lightning
 from torch_geometric.transforms import BaseTransform
-import scipy
 
 def relpos(rigid_res_index, edge_index):
 
@@ -33,7 +32,7 @@ def relpos(rigid_res_index, edge_index):
 def rbf(D, D_min=0., D_max=20., D_count=16):
     # Distance radial basis function
 
-    D_mu = torch.linspace(D_min, D_max, D_count)
+    D_mu = torch.linspace(D_min, D_max, D_count).to(D.device)
     D_mu = D_mu.view([1] * len(D.shape) + [-1])
 
     D_sigma = (D_max - D_min) / D_count
@@ -45,41 +44,25 @@ def rbf(D, D_min=0., D_max=20., D_count=16):
 
 def knn_graph(x, k):
 
-    batch_x = x.new_zeros(x.size(0), dtype=torch.long)
+    displacement = x[None, :, :] - x[:, None, :]
+    distance = torch.linalg.vector_norm(displacement, dim=-1).float()
 
-    # Rescale x and y.
-    min_x = x.min().item()
-    x  = x - min_x
+    # Value of distance [N_rigid, K], Index of distance [N_rigid, K]
+    distance, E_idx = torch.topk(distance, k, dim=-1, largest=False)
+    col = E_idx.flatten() # source
+    row = torch.arange(E_idx.size(0)).view(-1,1).repeat(1,k).flatten().cuda() # target
 
-    max_x = x.max().item()
-    x = x / max_x
-
-    x = torch.cat([x, 2 * x.size(1) * batch_x.view(-1, 1).to(x.dtype)], dim=-1)
-
-    tree = scipy.spatial.cKDTree(x.detach().cpu().numpy())
-
-    dist, col = tree.query(
-        x.detach().cpu(), k=k, distance_upper_bound=x.size(1))
-    
-    dist = torch.from_numpy(dist).to(x.dtype)
-    col = torch.from_numpy(col).to(torch.long)
-    row = torch.arange(col.size(0), dtype=torch.long).view(-1, 1).repeat(1, k)
-    mask = 1 - torch.isinf(dist).view(-1).long()
-    row, col = row.view(-1)[mask], col.view(-1)[mask]
-
-    return torch.stack([row, col], dim=0)
+    return torch.stack([row, col], dim=0), distance.flatten()
     
 def transform_structure(protein, noise):
 
     # Edge_feature
     angle_sin_cos = torch.stack([torch.sin(noise), torch.cos(noise)], dim=-1)
 
-    rigids = structure_build.torsion_to_frame(angle_sin_cos, protein)
+    rigids, local_r, _ = structure_build.torsion_to_frame(angle_sin_cos, protein)
     # this is [N_rigid]
-
-    edge_index = knn_graph(rigids.loc, k=32)
-
-    distance, altered_direction, orientation = rigids.edge(edge_index)
+    k = 32 if protein.num_nodes >= 32 else protein.num_nodes
+    edge_index, distance = knn_graph(rigids.loc, k)
 
     distance_rbf = rbf(distance)
     rigid_res_idx = protein.res_index.unsqueeze(-1).repeat(1, 5).reshape(-1)
@@ -97,6 +80,7 @@ def transform_structure(protein, noise):
     protein.edge_attr = edge_feature
     protein.edge_index = edge_index
     protein.rigid = rigids
+    protein.local_rigid = local_r
 
     return protein
 

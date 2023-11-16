@@ -75,10 +75,11 @@ class GraphIPA(MessagePassing, ABC):
         edge_index = data.edge_index
         n_edge = data.num_edges
         r = data.rigid
-        rot = torch.cat([rigid.rot.get_rot_mat() for rigid in r], 0)
-        trans = torch.cat([rigid.trans for rigid in r], 0)
-        loc = torch.cat([rigid.loc for rigid in r], 0)
-        r = Rigid(Rotation(rot), trans, loc).cuda()
+        if type(r) == list:
+            rot = torch.cat([rigid.rot.get_rot_mat() for rigid in r], 0)
+            trans = torch.cat([rigid.trans for rigid in r], 0)
+            loc = torch.cat([rigid.loc for rigid in r], 0)
+            r = Rigid(Rotation(rot), trans, loc).cuda()
 
         # [N, 2* H * C_hidden]
         src_kv = self.lin_src_kv(x)

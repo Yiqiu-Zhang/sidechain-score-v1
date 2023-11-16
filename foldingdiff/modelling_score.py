@@ -2,17 +2,12 @@
 Modelling
 """
 import os
-import random
-import re
 import shutil
 import time
 import glob
 from pathlib import Path
 import json
-import inspect
 import logging
-import math
-import functools
 from typing import *
 
 import torch
@@ -21,31 +16,18 @@ from torch.nn import functional as F
 
 import pytorch_lightning as pl
 
-from transformers import BertConfig
-from transformers.models.bert.modeling_bert import (
-    BertPreTrainedModel,
-    BertEncoder,
-)
-from transformers.activations import get_activation
 from transformers.optimization import get_linear_schedule_with_warmup
 
 from tqdm.auto import tqdm
 
 from foldingdiff import losses_score as losses
-from foldingdiff import nerf
-from foldingdiff.datasets_score import FEATURE_SET_NAMES_TO_ANGULARITY
 
-#start===================yinglv====================================
-# import graph_transformer
-#from rigid_attention.rigid_angle_transformer import *
-from write_preds_pdb import structure_build_score as structure_build
-from write_preds_pdb import geometry
+
 import sys
 sys.path.append(r"/mnt/petrelfs/lvying/code/sidechain_score/")
 from model import *
 from model.rigid_diffusion_score import *
-#end=====================yinglv====================================
-import tracemalloc
+
 from torch.nn.parallel import DistributedDataParallel
 
 LR_SCHEDULE = Optional[Literal["OneCycleLR", "LinearWarmup"]]
@@ -75,7 +57,6 @@ class AngleDiffusionBase(nn.Module):
         cls,
         dirname: str,
         load_weights: bool = True,
-        idx: int = -1,
         best_by: Literal["train", "valid"] = "valid",
         copy_to: str = "",
         **kwargs,
@@ -89,40 +70,16 @@ class AngleDiffusionBase(nn.Module):
         with open(train_args_fname, "r") as source:
             train_args = json.load(source)
 
-        # Handles the case where we repurpose the time encoding for seq len encoding in the AR model
-        time_encoding_key = (
-            "time_encoding" if "time_encoding" in train_args else "seq_len_encoding"
-        )
-        model_args = dict(
-            time_encoding=train_args[time_encoding_key],
-            #dropout = 0.1
-            # lr=train_args["lr"],
-            # loss=train_args["loss"],
-            # l2=train_args["l2_norm"],
-            # l1=train_args["l1_norm"],
-            # circle_reg=train_args["circle_reg"],
-            # lr_scheduler=train_args["lr_scheduler"],
-            **kwargs,
-        )
-        print('==============================model_args', model_args)
         if load_weights:
             subfolder = f"best_by_{best_by}"
             ckpt_names = glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt"))
             logging.info(f"Found {len(ckpt_names)} checkpoints")
-            ckpt_name = ckpt_names[idx]
+            ckpt_name = ckpt_names[0] # choose which check point
             logging.info(f"Loading weights from {ckpt_name}")
-            if hasattr(cls, "load_from_checkpoint"):
-                # Defined for pytorch lightning module
-                retval = cls.load_from_checkpoint(
-                    checkpoint_path=ckpt_name, **model_args
-                )
-            else:
-                retval = cls(**model_args)
-                loaded = torch.load(ckpt_name, map_location=torch.device("cpu"))
-                retval.load_state_dict(loaded["state_dict"])
-        else:
-            retval = cls(**model_args)
-            logging.info(f"Loaded unitialized model from {dirname}")
+
+            retval = cls()
+            loaded = torch.load(ckpt_name, map_location=torch.device("cuda"))
+            retval.load_state_dict(loaded["state_dict"])
 
         # If specified, copy out the requisite files to the given directory
         if copy_to:
@@ -183,26 +140,12 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         if self.write_preds_to_dir:
             os.makedirs(self.write_preds_to_dir, exist_ok=True)
   
-    def _get_loss_terms_grad(self,
-                             data: torch.Tensor,
-                             ) -> torch.Tensor:
-        """
-           Returns the loss terms for the model. Length of the returned list
-           is equivalent to the number of features we are fitting to.
-        """
-
-        predicted_score = self.forward(data)
-
-        loss = losses.score_loss(predicted_score, data)
-
-        return loss
-
     def training_step(self, batch, batch_idx):
         """
         Training step, runs once per batch
         """
-
-        avg_loss = self._get_loss_terms_grad(batch)
+        predicted_score = self.forward(batch)
+        avg_loss = losses.score_loss(predicted_score, batch)
         self.log("train_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
 
         return avg_loss
@@ -225,7 +168,9 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         Validation step
         """
         with torch.no_grad():
-            avg_loss = self._get_loss_terms_grad(batch)
+            predicted_score = self.forward(batch)
+            avg_loss = losses.score_loss(predicted_score, batch)
+            
             self.write_preds_counter += 1
 
         self.log("val_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)

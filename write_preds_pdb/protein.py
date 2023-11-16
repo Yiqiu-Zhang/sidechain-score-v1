@@ -62,8 +62,8 @@ def to_pdb(prot: Protein) -> str:
     pdb_lines = []
 
     atom_mask = prot.atom_mask
-    aatype = prot.aatype
-    atom_positions = prot.atom_positions
+    aatype = prot.aatype.cpu().numpy()
+    atom_positions = prot.atom_positions.cpu()
     residue_index = prot.residue_index.astype(np.int32)
     b_factors = prot.b_factors
     chain_index = prot.chain_index

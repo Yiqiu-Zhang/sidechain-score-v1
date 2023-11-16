@@ -54,9 +54,6 @@ class InputEmbedder(nn.Module):
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
 
-        # self.angle_embedder = AngleEmbedder()
-        #关掉pair-embedding
-        
         self.pair_embedder = PairEmbedder(pair_dim,
                                         c_z,
                                         #c_hidden_tri_att,
@@ -76,13 +73,11 @@ class InputEmbedder(nn.Module):
 
         pair_time = node_time_emb[data.edge_index[0]]
 
-        # [N_rigid, nf_dim] 6 + 20 + 320,
-
         # [N_rigid, c_n]
         node_emb = self.linear_tf_n(data.x)
         
         # add time encode
-        node_emb = torch.cat((node_emb,node_time_emb),-1)
+        node_emb = torch.cat((node_emb, node_time_emb),-1)
 
         ################ Pair_feature ####################
         pair_emb = torch.cat((pair_time, data.edge_attr), dim=-1)
@@ -287,7 +282,6 @@ class RigidUpdate(nn.Module):
 
         s = self.linear_initial(s)
         s = self.relu(s)
-        # [B, N_rigid, 3]
         trans = self.linear(s)
 
         return trans

@@ -38,6 +38,7 @@ def protein_to_graph(protein):
     rigid_type_onehot = torch.as_tensor(protein['rigid_type_onehot'])
     rigid_property = torch.as_tensor(protein['rigid_property'])
     acid_embedding = torch.as_tensor(protein['acid_embedding'])
+    fname = protein['fname']
 
     # rigid_mask
     restype_frame5_mask = torch.tensor(restype_frame_mask, dtype=bool)
@@ -63,6 +64,7 @@ def protein_to_graph(protein):
                                      chi_mask = chi_mask,
                                      rigid_mask = rigid_mask,
                                      res_index = res_index,
+                                     fname = fname,
                                      )
 
     return data

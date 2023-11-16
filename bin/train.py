@@ -242,7 +242,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=len(datamodule.train_dataloader()),  # Log >= once per epoch
+        log_every_n_steps=min(50,len(datamodule.train_dataloader())),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
         gpus=ngpu,

@@ -265,54 +265,8 @@ def score_loss(predicted_score: torch.Tensor, data  ):
     loss = mask_mean(data.chi_mask,
                     (score - predicted_score) ** 2 / score_norm,
                     dim=(-1, -2))
-    '''
-    angles_sin_cos = torch.stack([torch.sin(angles), torch.cos(angles)], dim=-1)
-    # [B, N_rigid]
-    ture_rigid,_,_ = structure_build.torsion_to_frame(angles_sin_cos,
-                                                    seq,
-                                                    coords)
-    # [B,N,4,1]
-    shifted_mask = (1 - 2 * chi_pi_periodic).unsqueeze(-1)
-    alt_sin_cos = shifted_mask * angles_sin_cos # 对称的角度，sin cos 全部变为 -sin -cos
-    alt_rigid,_,_ = structure_build.torsion_to_frame(alt_sin_cos,
-                                                    seq,
-                                                    coords)
-    # [B, N_rigid,3]
-    known_distance = geometry.loc_invert_rot_mul_vec(rigids, ture_rigid.loc) # Then translated to noise rigid frame
-    alt_distance =  geometry.loc_invert_rot_mul_vec(rigids, alt_rigid.loc)
 
-    B, N_rigid = rigids.shape
-
-    if all_loc:
-        # [B, N_res, 5]
-        modified_rigid_mask = torch.ones((B,int(N_rigid/5),5),device=predicted_score.device)
-        modified_rigid_mask[...,0] = 0.
-        modified_rigid_mask[...,1:] =  modified_rigid_mask[...,1:] * mask
-
-
-    else:
-
-        # [B, N_res, 5]
-        modified_rigid_mask = torch.einsum(
-            "...ij,jk->...ik",
-            residue_type_one_hot.type(predicted_score.dtype),
-            predicted_score.new_tensor(constant.end_rigid), # [21, 5]
-        )
-        
-    # [B, N_rigid, 3]
-    d_error = torch.sqrt(torch.sum((known_distance - sum_local_t) ** 2, dim=-1) + eps)
-    alt_d_error = torch.sqrt(torch.sum((alt_distance - sum_local_t) ** 2, dim=-1) + eps)
-    d_error =  torch.minimum(d_error, alt_d_error) 
-    d_error = torch.clamp(d_error, min=0, max=clamp_distance)
-
-    norm_d_error  = d_error/ length_scale
-    # [B, N_res,5]
-    norm_d_error = norm_d_error.reshape(norm_d_error.shape[0],-1, 5)
-    trans_loss = mask_mean(modified_rigid_mask, norm_d_error, dim=(-1,-2, -3))
-    '''
-
-    return loss #+ 0.5*trans_loss
-#=======================================new loss=========================================
+    return loss 
 
 def main():
     lengths = torch.randint(2, 5, size=(16,)) * 3
