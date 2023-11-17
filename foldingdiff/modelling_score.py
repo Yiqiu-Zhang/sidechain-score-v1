@@ -74,7 +74,7 @@ class AngleDiffusionBase(nn.Module):
             subfolder = f"best_by_{best_by}"
             ckpt_names = glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt"))
             logging.info(f"Found {len(ckpt_names)} checkpoints")
-            ckpt_name = ckpt_names[0] # choose which check point
+            ckpt_name = ckpt_names[1] # choose which check point
             logging.info(f"Loading weights from {ckpt_name}")
 
             retval = cls()

@@ -7,18 +7,6 @@ import torch
 import torch_geometric.data
 
 
-full_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/cath_test.pkl'
-
-with open(full_data_name, "rb") as file:
-
-    proteins_list = pickle.load(file)
-
-#Node feature: seq_emb, rigid_type, rigid_property
-#Pair feature: distance_rbf, relative_pos
-#Additional input: Rigid
-
-
-
 
 def get_default_r(restype_idx):
     default_frame = torch.tensor(restype_rigid_group_default_frame, device= restype_idx.device)

@@ -42,12 +42,6 @@ def rotate_sidechain(
     # ]
     # This follows the original code rather than the supplement, which uses
     # different indices.
-    if type(last_local_r) == list:
-        rot = torch.cat([rigid.rot.get_rot_mat() for rigid in last_local_r], 0)
-        trans = torch.cat([rigid.trans for rigid in last_local_r], 0)
-        loc = torch.cat([rigid.loc for rigid in last_local_r], 0)
-        last_local_r = geometry.Rigid(geometry.Rotation(rot), trans, loc).cuda()
-
     all_rots = sin_angles.new_zeros(last_local_r.rot.get_rot_mat().shape).to(sin_angles.device)
     # print("orign all_rots==",all_rots.shape)
     all_rots[..., 0, 0] = 1

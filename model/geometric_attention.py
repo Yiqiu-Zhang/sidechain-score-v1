@@ -80,6 +80,8 @@ class GraphIPA(MessagePassing, ABC):
             trans = torch.cat([rigid.trans for rigid in r], 0)
             loc = torch.cat([rigid.loc for rigid in r], 0)
             r = Rigid(Rotation(rot), trans, loc).cuda()
+        else:
+            r = r.cuda()
 
         # [N, 2* H * C_hidden]
         src_kv = self.lin_src_kv(x)

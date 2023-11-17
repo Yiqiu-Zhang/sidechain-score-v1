@@ -237,7 +237,7 @@ def square_chi_loss_with_periodic(
 
     return sq_chi_loss + angle_norm_weight * angle_norm_loss
 
-def score_loss(predicted_score: torch.Tensor, data  ):
+def score_loss(predicted_score: torch.Tensor, data):
 
     sigma = data.res_sigma
     known_noise = data.noise

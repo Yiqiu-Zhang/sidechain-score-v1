@@ -50,7 +50,7 @@ def knn_graph(x, k):
     # Value of distance [N_rigid, K], Index of distance [N_rigid, K]
     distance, E_idx = torch.topk(distance, k, dim=-1, largest=False)
     col = E_idx.flatten() # source
-    row = torch.arange(E_idx.size(0)).view(-1,1).repeat(1,k).flatten().cuda() # target
+    row = torch.arange(E_idx.size(0)).view(-1,1).repeat(1,k).flatten().to(col.device) # target
 
     return torch.stack([row, col], dim=0), distance.flatten()
     
@@ -74,13 +74,33 @@ def transform_structure(protein, noise):
                               ],
                              dim=-1).float()
 
-    protein.edge_attr = edge_feature
-    protein.edge_index = edge_index
-    protein.rigid = rigids
-    protein.local_rigid = local_r
-    protein.all_frames_to_global = all_frames_to_global
 
-    return protein
+
+    return edge_feature, edge_index, rigids, local_r, all_frames_to_global
+
+class SampleNoiseTransform(BaseTransform):
+    def __init__(self, sigma_min=0.01 * np.pi, sigma_max=np.pi):
+        self.sigma_min = sigma_min
+        self.sigma_max = sigma_max
+
+    def __call__(self, data):
+
+        ramdom_sample = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
+
+        corrupted_angles = ramdom_sample.sample(data.true_chi.shape)
+        
+        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, corrupted_angles)
+
+        data.edge_attr = edge_feature
+        data.edge_index = edge_index
+        data.rigid = rigids
+        data.local_rigid = local_r
+
+        return data
+
+    def __repr__(self) -> str:
+        return (f'{self.__class__.__name__}(sigma_min={self.sigma_min}, '
+                f'sigma_max={self.sigma_max})')
 
 class TorsionNoiseTransform(BaseTransform):
     def __init__(self, sigma_min=0.01 * np.pi, sigma_max=np.pi):
@@ -97,7 +117,12 @@ class TorsionNoiseTransform(BaseTransform):
         data.res_sigma = sigma * torch.ones(data.true_chi.shape)
         data.noise = noise
 
-        data = transform_structure(data, noise)
+        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, noise)
+
+        data.edge_attr = edge_feature
+        data.edge_index = edge_index
+        data.rigid = rigids
+        data.local_rigid = local_r
 
         return data
 

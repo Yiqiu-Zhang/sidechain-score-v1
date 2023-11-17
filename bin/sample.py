@@ -5,6 +5,7 @@ import argparse
 import logging
 from pathlib import Path
 from typing import *
+import copy
 
 import torch
 from torch_geometric.loader import DataLoader
@@ -16,7 +17,7 @@ from foldingdiff import sampling_score as sampling
 from model import dataset
 
 import glob
-from write_preds_pdb.structure_build_score import write_pdb_from_position
+from write_preds_pdb.structure_build_score import write_pdb_from_position, torsion_to_frame, frame_to_pos
 
 
 from foldingdiff.ESM1b_embedding import add_esm1b_embedding
@@ -130,27 +131,33 @@ def main() -> None:
 
     #test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
     test_graph_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_graph.pkl'
-    data = dataset.ProteinDataset(cache = test_graph_name) #, pickle_dir = test_data_name
-    test_loader = DataLoader(dataset=data, batch_size=1)
+    sample_transform = dataset.SampleNoiseTransform()
+    data = dataset.ProteinDataset(cache = test_graph_name,transform=sample_transform) #, pickle_dir = test_data_name
     
     outdir_pdb = outdir / "sampled_pdb"
     os.makedirs(outdir_pdb, exist_ok=True)
 
-    ramdom_sample = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
+    for i in range(5):
+        for protein in data[:1]:
+            
+            if len(protein.aatype)>128:
+                continue
+            
+            prot_gpu = copy.deepcopy(protein).to('cuda')
+            pdbname = Path(protein.fname).name
 
-    for protein in test_loader:
-        if len(protein.aatype)>128:
-            continue
+            '''
+            empty = torch.zeros(protein.true_chi.shape).cuda()
+            _, _, frame = torsion_to_frame(empty, protein)
+            pos = frame_to_pos(frame.cuda(), 
+                               protein.aatype,
+                               protein.bb_coord)
+            
+            write_pdb_from_position(protein, pos, outdir_pdb, pdbname, i+100)
+            '''
 
-        # [T, N, 4]
-        all_atom_positions = sampling.sample(model, protein, ramdom_sample)
-
-        # Write the raw sampled items to csv files
-        pdbname = Path(protein.fname[0]).name
-
-        for j, atom_positions in enumerate(all_atom_positions):
-
-            write_pdb_from_position(protein, atom_positions, outdir_pdb, pdbname, j)
+            all_atom_positions = sampling.p_sample_loop_score(model, prot_gpu)            
+            write_pdb_from_position(protein, all_atom_positions, outdir_pdb, pdbname, i)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
