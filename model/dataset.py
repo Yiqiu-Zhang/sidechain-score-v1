@@ -112,12 +112,13 @@ class TorsionNoiseTransform(BaseTransform):
         sigma = np.exp(np.random.uniform(low=np.log(self.sigma_min), high=np.log(self.sigma_max)))
         sigma = torch.tensor(sigma)
         noise = torch.normal(0, sigma, size=data.true_chi.shape)
+        corrupted_angle = data.true_chi + noise
 
         data.node_sigma = sigma * torch.ones(data.num_nodes)
         data.res_sigma = sigma * torch.ones(data.true_chi.shape)
         data.noise = noise
 
-        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, noise)
+        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, corrupted_angle)
 
         data.edge_attr = edge_feature
         data.edge_index = edge_index

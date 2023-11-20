@@ -168,7 +168,6 @@ def mask_mean(mask, value, dim, eps=1e-4):
 #=======================================new loss=========================================
 
 #=======================================new loss=========================================
-
 def square_chi_loss(
     pred_chi_sin_cos: torch.Tensor, # [b,L,4,2]
     true_chi: torch.Tensor,# [b,L,4]

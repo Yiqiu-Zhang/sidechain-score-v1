@@ -17,9 +17,7 @@ import shutil
 import json
 import logging
 from pathlib import Path
-import multiprocessing
 import argparse
-import functools
 from datetime import datetime
 from typing import *
 
@@ -27,74 +25,26 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import torch
-from torch.utils.data import Dataset, Subset
-from torch.utils.data.dataloader import DataLoader
-import torch.nn.functional as F
 
 import pytorch_lightning as pl
 from pytorch_lightning.strategies.ddp import DDPStrategy
-from torch_geometric.data import Dataset, DataLoader, lightning
+from torch_geometric.data import lightning
 
-from transformers import BertConfig
 
 sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
-#from foldingdiff import datasets_score as datasets
 from foldingdiff import modelling_score as modelling
-from foldingdiff import losses_score as losses
-from foldingdiff import beta_schedules
-from foldingdiff import plotting
 from foldingdiff import utils
 from foldingdiff import custom_metrics as cm
 from model import dataset
-from torchsummary import summary
 
 #                        
 #from pytorch_lightning.profiler import SimpleProfiler, AbstractProfiler, AdvancedProfiler, PyTorchProfiler
-from pytorch_lightning.loggers import TensorBoardLogger
 
 assert torch.cuda.is_available(), "Requires CUDA to train"
 # reproducibility
 torch.manual_seed(6489)
 # torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.benchmark = False
-
-# Define some typing literals
-ANGLES_DEFINITIONS = Literal[
-    "canonical", "canonical-full-angles", "canonical-minimal-angles", "cart-coords","side-chain-angles"
-]
-
-
-@pl.utilities.rank_zero_only
-def plot_timestep_distributions(
-    train_dset,
-    timesteps: int,
-    plots_folder: Path,
-    shift_angles_zero_twopi: bool = False,
-    n_intervals: int = 11,
-) -> None:
-    """
-    Plot the distributions across timesteps. This is parallelized across multiple cores
-    """
-    ts = np.linspace(0, timesteps, num=n_intervals, endpoint=True).astype(int)
-    ts = np.minimum(ts, timesteps - 1).tolist()
-    logging.info(f"Plotting distributions at {ts} to {plots_folder}")
-    args = [
-        (
-            t,
-            train_dset,
-            True,
-            not shift_angles_zero_twopi,
-            plots_folder / f"train_dists_at_t_{t}.pdf",
-        )
-        for t in ts
-    ]
-
-    # Parallelize the plotting
-    pool = multiprocessing.Pool(processes=min(multiprocessing.cpu_count(), len(ts)))
-    pool.starmap(plotting.plot_val_dists_at_t, args)
-    pool.close()
-    pool.join()
-
 
 @pl.utilities.rank_zero_only
 def plot_kl_divergence(train_dset, plots_folder: Path) -> None:
@@ -318,7 +268,7 @@ def main():
         {
             "results_dir": args.outdir,
             "cpu_only": args.cpu,
-            "ngpu": 6,
+            "ngpu": 8,
         },
     )    
     train(**config_args)
