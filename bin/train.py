@@ -19,6 +19,7 @@ import logging
 from pathlib import Path
 import argparse
 from datetime import datetime
+from datetime import timedelta
 from typing import *
 
 import numpy as np
@@ -130,7 +131,8 @@ def train(
     lr_scheduler: modelling.LR_SCHEDULE = None,
 
     cpu_only: bool = False,
-    ngpu: int = -1,  # -1 for all GPUs
+    ndevice: int = -1,  # -1 for all GPUs
+    node: int = 1,
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
 
 ):
@@ -149,11 +151,10 @@ def train(
                                     #pickle_dir=full_data_name,
                                     transform=transform) for s in ('train', 'val')]
 
-    effective_batch_size = batch_size
     if torch.cuda.is_available():
-        effective_batch_size = int(batch_size / torch.cuda.device_count())
+        effective_batch_size = int(batch_size / (ndevice *node))
     pl.utilities.rank_zero_info(
-        f"Given batch size: {batch_size} --> effective batch size with {torch.cuda.device_count()} GPUs: {effective_batch_size}"
+        f"Given batch size: {batch_size} --> effective batch size with {(ndevice *node)} GPUs: {effective_batch_size}"
     )
 
     datamodule = lightning.LightningDataset(train_dataset=dsets[0],
@@ -178,8 +179,9 @@ def train(
     accelerator, strategy = "cpu", None
     if not cpu_only and torch.cuda.is_available():
         accelerator = "cuda"
-        if torch.cuda.device_count() > 1:
+        if ndevice > 1:
             # https://github.com/Lightning-AI/lightning/discussions/6761https://github.com/Lightning-AI/lightning/discussions/6761
+            # I change the timeout at .conda/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/constants.py
             strategy = DDPStrategy(find_unused_parameters=False)
 
     logging.info(f"Using {accelerator} with strategy {strategy}")
@@ -195,7 +197,8 @@ def train(
         log_every_n_steps=min(50,len(datamodule.train_dataloader())),  # Log >= once per epoch
         accelerator=accelerator,
         strategy=strategy,
-        gpus=ngpu,
+        devices=ndevice,
+        num_nodes=node,
         enable_progress_bar=False,
         move_metrics_to_cpu=False,  # Saves memory
     )
@@ -241,7 +244,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--cpu", action="store_true", help="Force use CPU")
     parser.add_argument(
-        "--ngpu", type=int, default=-1, help="Number of GPUs to use (-1 for all)"
+        "--ndevice", type=int, default=-1, help="Number of GPUs to use (-1 for all)"
     )
     parser.add_argument("--dryrun", action="store_true", help="Dry run")
     parser.add_argument(
@@ -249,6 +252,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="Use a toy dataset of n items rather than full dataset",
+    )
+    parser.add_argument(
+    "--node",
+    type=int,
+    default=1,
+    help="number of nodes",
     )
     return parser
 
@@ -268,7 +277,8 @@ def main():
         {
             "results_dir": args.outdir,
             "cpu_only": args.cpu,
-            "ngpu": 8,
+            "ndevice": args.ndevice,
+            "node": args.node,
         },
     )    
     train(**config_args)
