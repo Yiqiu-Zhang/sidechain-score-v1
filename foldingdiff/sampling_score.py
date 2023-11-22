@@ -36,12 +36,7 @@ def p_sample_loop_score(
         z = torch.normal(mean=0, std=1, size= score.shape).to('cuda')
         perturb = g ** 2 * eps * score + g * np.sqrt(eps) * z
 
-        edge_feature, edge_index, rigids, local_r, all_frames_to_global = transform_structure(protein, perturb)
-
-        protein.edge_attr = edge_feature
-        protein.edge_index = edge_index
-        protein.rigid = rigids
-        protein.local_rigid = local_r
+        protein, all_frames_to_global = transform_structure(protein, perturb)
 
     all_atom_positions = structure_build.frame_to_pos(all_frames_to_global, 
                                                       protein.aatype,

@@ -103,7 +103,7 @@ def _get_pairwise_dist_batch(
     for i, l in enumerate(lengths):
         mask[i, :l] = 1.0
 
-    retval = torch.zeros((len(values), max_len)).to(dev)
+    retval = torch.zeros((len(values), max_len)).to(values.device)
     for i, v in enumerate(values):
         retval[i, : len(v)] = v
     assert retval.shape == mask.shape
@@ -253,7 +253,7 @@ def score_loss(predicted_score: torch.Tensor, data):
         "ij,jk-> ik",
         residue_type_one_hot.type(predicted_score.dtype),
         predicted_score.new_tensor(constant.chi_pi_periodic), # [21, 4]
-    ).to(torch.bool).to(known_noise.device)
+    ).to(known_noise.device).to(torch.bool)
 
 
     # [L,4]

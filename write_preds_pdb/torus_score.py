@@ -70,13 +70,13 @@ else:
     np.save('.score_norm_pi.npy', score_norm_)
 
 
-p_ = torch.tensor(p_).to('cuda')
-score_ = torch.tensor(score_).to('cuda')
-score_norm_ = torch.tensor(score_norm_).to('cuda')
+p_ = torch.tensor(p_)
+score_ = torch.tensor(score_)
+score_norm_ = torch.tensor(score_norm_)
 
-score_pi = torch.tensor(score_pi).to('cuda')
-p_pi = torch.tensor(p_pi).to('cuda')
-score_norm_pi = torch.tensor(score_norm_pi).to('cuda')
+score_pi = torch.tensor(score_pi)
+p_pi = torch.tensor(p_pi)
+score_norm_pi = torch.tensor(score_norm_pi)
 
 
 def score(x: torch.Tensor, # [N,4]

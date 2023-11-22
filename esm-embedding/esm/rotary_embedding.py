@@ -51,7 +51,7 @@ class RotaryEmbedding(torch.nn.Module):
         # or if we're on a new device (possibly due to tracing for instance)
         if seq_len != self._seq_len_cached or self._cos_cached.device != x.device:
             self._seq_len_cached = seq_len
-            t = torch.arange(x.shape[seq_dimension], device=x.device).type_as(self.inv_freq)
+            t = torch.arange(x.shape[seq_dimension], device=x.device).to(self.inv_freq)
             freqs = torch.einsum("i,j->ij", t, self.inv_freq)
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
 

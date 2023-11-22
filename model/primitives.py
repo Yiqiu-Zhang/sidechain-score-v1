@@ -219,7 +219,7 @@ def _attention(query: torch.Tensor, # [*, N_rigid, H, N_rigid, C_hidden]
     for b in biases:
      #   print("==========b===========",b.device)
         
-        a += b.to('cuda')
+        a += b.to(a.device)
 
     a = softmax_no_cast(a, -1)
 

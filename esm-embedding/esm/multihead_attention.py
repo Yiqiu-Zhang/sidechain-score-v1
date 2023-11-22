@@ -346,7 +346,7 @@ class MultiheadAttention(nn.Module):
                 key_padding_mask = torch.cat(
                     [
                         key_padding_mask,
-                        torch.zeros(key_padding_mask.size(0), 1).type_as(key_padding_mask),
+                        torch.zeros(key_padding_mask.size(0), 1).to(key_padding_mask),
                     ],
                     dim=1,
                 )
@@ -377,9 +377,9 @@ class MultiheadAttention(nn.Module):
             return attn_weights, v
 
         attn_weights_float = utils_softmax(attn_weights, dim=-1, onnx_trace=self.onnx_trace)
-        attn_weights = attn_weights_float.type_as(attn_weights)
+        attn_weights = attn_weights_float.to(attn_weights)
         attn_probs = F.dropout(
-            attn_weights_float.type_as(attn_weights),
+            attn_weights_float.to(attn_weights),
             p=self.dropout,
             training=self.training,
         )
@@ -397,7 +397,7 @@ class MultiheadAttention(nn.Module):
         if need_weights:
             attn_weights = attn_weights_float.view(
                 bsz, self.num_heads, tgt_len, src_len
-            ).type_as(attn).transpose(1, 0)
+            ).to(attn).transpose(1, 0)
             if not need_head_weights:
                 # average attention weights over heads
                 attn_weights = attn_weights.mean(dim=0)

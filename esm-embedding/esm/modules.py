@@ -245,7 +245,7 @@ class LearnedPositionalEmbedding(nn.Embedding):
                 f" sequence length of {self.max_positions}"
             )
         mask = input.ne(self.padding_idx).int()
-        positions = (torch.cumsum(mask, dim=1).type_as(mask) * mask).long() + self.padding_idx
+        positions = (torch.cumsum(mask, dim=1).to(mask.device) * mask).long() + self.padding_idx
         return F.embedding(
             positions,
             self.weight,
@@ -270,7 +270,7 @@ class SinusoidalPositionalEmbedding(nn.Module):
         max_pos = self.padding_idx + 1 + seq_len
         if self.weights is None or max_pos > self.weights.size(0):
             self.weights = self.get_embedding(max_pos)
-        self.weights = self.weights.type_as(self._float_tensor)
+        self.weights = self.weights.to(self._float_tensor)
 
         positions = self.make_positions(x)
         return self.weights.index_select(0, positions.view(-1)).view(bsz, seq_len, -1).detach()
@@ -338,7 +338,7 @@ class ContactPredictionHead(nn.Module):
     def forward(self, tokens, attentions):
         # remove eos token attentions
         if self.append_eos:
-            eos_mask = tokens.ne(self.eos_idx).to(attentions)
+            eos_mask = tokens.ne(self.eos_idx).to(attentions.device)
             eos_mask = eos_mask.unsqueeze(1) * eos_mask.unsqueeze(2)
             attentions = attentions * eos_mask[:, None, None, :, :]
             attentions = attentions[..., :-1, :-1]

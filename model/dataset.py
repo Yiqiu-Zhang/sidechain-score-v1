@@ -32,7 +32,7 @@ def relpos(rigid_res_index, edge_index):
 def rbf(D, D_min=0., D_max=20., D_count=16):
     # Distance radial basis function
 
-    D_mu = torch.linspace(D_min, D_max, D_count).to(D.device)
+    D_mu = torch.linspace(D_min, D_max, D_count).to(D)
     D_mu = D_mu.view([1] * len(D.shape) + [-1])
 
     D_sigma = (D_max - D_min) / D_count
@@ -50,7 +50,7 @@ def knn_graph(x, k):
     # Value of distance [N_rigid, K], Index of distance [N_rigid, K]
     distance, E_idx = torch.topk(distance, k, dim=-1, largest=False)
     col = E_idx.flatten() # source
-    row = torch.arange(E_idx.size(0)).view(-1,1).repeat(1,k).flatten().to(col.device) # target
+    row = torch.arange(E_idx.size(0)).view(-1,1).repeat(1,k).flatten().to(col) # target
 
     return torch.stack([row, col], dim=0), distance.flatten()
     
@@ -75,8 +75,12 @@ def transform_structure(protein, noise):
                              dim=-1).float()
 
 
+    protein.edge_attr = edge_feature
+    protein.edge_index = edge_index
+    protein.rigid = rigids
+    protein.local_rigid = local_r
 
-    return edge_feature, edge_index, rigids, local_r, all_frames_to_global
+    return protein, all_frames_to_global
 
 class SampleNoiseTransform(BaseTransform):
     def __init__(self, sigma_min=0.01 * np.pi, sigma_max=np.pi):
@@ -89,12 +93,7 @@ class SampleNoiseTransform(BaseTransform):
 
         corrupted_angles = ramdom_sample.sample(data.true_chi.shape)
         
-        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, corrupted_angles)
-
-        data.edge_attr = edge_feature
-        data.edge_index = edge_index
-        data.rigid = rigids
-        data.local_rigid = local_r
+        data, _ = transform_structure(data, corrupted_angles)
 
         return data
 
@@ -118,12 +117,7 @@ class TorsionNoiseTransform(BaseTransform):
         data.res_sigma = sigma * torch.ones(data.true_chi.shape)
         data.noise = noise
 
-        edge_feature, edge_index, rigids, local_r, _ = transform_structure(data, corrupted_angle)
-
-        data.edge_attr = edge_feature
-        data.edge_index = edge_index
-        data.rigid = rigids
-        data.local_rigid = local_r
+        data, _ = transform_structure(data, corrupted_angle)
 
         return data
 
@@ -132,7 +126,7 @@ class TorsionNoiseTransform(BaseTransform):
                 f'sigma_max={self.sigma_max})')
 
 class ProteinDataset(Dataset):
-    def __init__(self,cache=None, pickle_dir=None, split=None, transform = None):
+    def __init__(self,cache=None, pickle_dir=None, transform = None):
 
         super(ProteinDataset, self).__init__(transform)
         self.transform = transform
@@ -147,13 +141,6 @@ class ProteinDataset(Dataset):
                 print("Caching at", cache)
                 with open(cache, "wb") as f:
                     pickle.dump(self.proteins, f)
-
-        if split is not None:
-            split_idx = int(len(self.proteins) * 0.9)
-            if split == "train":
-                self.proteins = self.proteins[:split_idx]
-            elif split == "validation":
-                self.proteins = self.proteins[split_idx: split_idx + int(len(self.structures) * 0.1)]
 
     def len(self): return len(self.proteins)
     def get(self, item):

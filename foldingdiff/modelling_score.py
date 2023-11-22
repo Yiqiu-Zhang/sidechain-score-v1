@@ -229,6 +229,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
                 raise ValueError(f"Unknown lr scheduler {self.lr_scheduler}")
         pl.utilities.rank_zero_info(f"Using optimizer {retval}")
         return retval
+    
     def configure_ddp(self, model, device_ids):
         ddp = DistributedDataParallel(
             model,

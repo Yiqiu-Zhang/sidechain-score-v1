@@ -86,11 +86,11 @@ class TriangleMultiplicativeUpdate(nn.Module):
         
         z = self.layer_norm_in(z)
         a = mask
-        a = a.to('cuda') * self.sigmoid(self.linear_a_g(z)) 
-        a = a.to('cuda') * self.linear_a_p(z)
+        a = a.to(z.device) * self.sigmoid(self.linear_a_g(z)) 
+        a = a * self.linear_a_p(z)
         b = mask
-        b = b.to('cuda') * self.sigmoid(self.linear_b_g(z))
-        b = b.to('cuda') * self.linear_b_p(z)
+        b = b.to(z.device)* self.sigmoid(self.linear_b_g(z))
+        b = b * self.linear_b_p(z)
         
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):

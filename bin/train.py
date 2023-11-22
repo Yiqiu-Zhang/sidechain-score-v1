@@ -19,7 +19,6 @@ import logging
 from pathlib import Path
 import argparse
 from datetime import datetime
-from datetime import timedelta
 from typing import *
 
 import numpy as np
@@ -29,8 +28,9 @@ import torch
 
 import pytorch_lightning as pl
 from pytorch_lightning.strategies.ddp import DDPStrategy
-from torch_geometric.data import lightning
+from pytorch_lightning.strategies.ddp_spawn import DDPSpawnStrategy
 
+from torch_geometric.data import lightning
 
 sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
 from foldingdiff import modelling_score as modelling
@@ -96,11 +96,6 @@ def build_callbacks(outdir: str):
     logging.info(f"Model callbacks: {callbacks}")
     return callbacks
 
-
-# For some arg defaults, see as reference:
-# https://huggingface.co/docs/transformers/main/en/main_classes/trainer.html
-
-
 @pl.utilities.rank_zero_only
 def record_args_and_metadata(func_args: Dict[str, Any], results_folder: Path):
     # Create results directory
@@ -146,10 +141,11 @@ def train(
 
     graph_data = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl'
     transform = dataset.TorsionNoiseTransform()
-    dsets = [dataset.ProteinDataset(cache = graph_data,
-                                    split=s,
-                                    #pickle_dir=full_data_name,
-                                    transform=transform) for s in ('train', 'val')]
+    dset = dataset.ProteinDataset(cache = graph_data, transform=transform)
+    
+    split_idx = int(len(dset) * 0.9)
+    train_set = dset[:split_idx]
+    validation_set = dset[split_idx:]
 
     if torch.cuda.is_available():
         effective_batch_size = int(batch_size / (ndevice *node))
@@ -157,8 +153,8 @@ def train(
         f"Given batch size: {batch_size} --> effective batch size with {(ndevice *node)} GPUs: {effective_batch_size}"
     )
 
-    datamodule = lightning.LightningDataset(train_dataset=dsets[0],
-                                            val_dataset=dsets[1],
+    datamodule = lightning.LightningDataset(train_dataset=train_set,
+                                            val_dataset=validation_set,
                                             batch_size=effective_batch_size,
                                             pin_memory=True)
 
@@ -175,16 +171,12 @@ def train(
 
     callbacks = build_callbacks(outdir=results_folder)
 
-    # Get accelerator and distributed strategy
-    accelerator, strategy = "cpu", None
-    if not cpu_only and torch.cuda.is_available():
-        accelerator = "cuda"
-        if ndevice > 1:
-            # https://github.com/Lightning-AI/lightning/discussions/6761https://github.com/Lightning-AI/lightning/discussions/6761
-            # I change the timeout at .conda/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/constants.py
-            strategy = DDPStrategy(find_unused_parameters=False)
 
-    logging.info(f"Using {accelerator} with strategy {strategy}")
+    # https://github.com/Lightning-AI/lightning/discussions/6761https://github.com/Lightning-AI/lightning/discussions/6761
+    # I change the timeout at .conda/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/constants.py
+    strategy = DDPStrategy(find_unused_parameters=False)
+
+    logging.info(f"Using gpu with strategy {strategy}")
 
     trainer = pl.Trainer(
         default_root_dir=results_folder,
@@ -194,10 +186,11 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=min(50,len(datamodule.train_dataloader())),  # Log >= once per epoch
-        accelerator=accelerator,
+        log_every_n_steps=min(10,len(datamodule.train_dataloader())),  # Log >= once per epoch
+        accelerator='gpu',
         strategy=strategy,
         devices=ndevice,
+        gpus=-1, # this only tells which gups to use should be -1 
         num_nodes=node,
         enable_progress_bar=False,
         move_metrics_to_cpu=False,  # Saves memory
@@ -246,7 +239,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ndevice", type=int, default=-1, help="Number of GPUs to use (-1 for all)"
     )
-    parser.add_argument("--dryrun", action="store_true", help="Dry run")
     parser.add_argument(
         "--layer",
         type=int,

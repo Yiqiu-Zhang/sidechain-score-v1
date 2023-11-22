@@ -24,10 +24,10 @@ def rbf(D, D_min = 0., D_max=20., D_count=16):
     # Distance radial basis function
 
     D_mu = torch.linspace(D_min, D_max, D_count)
-    D_mu = D_mu.view([1] * len(D.shape) + [-1]).to('cuda')
+    D_mu = D_mu.view([1] * len(D.shape) + [-1]).to(D.device)
 
     D_sigma = (D_max - D_min) / D_count
-    D_expand = torch.unsqueeze(D, -1).to('cuda')
+    D_expand = torch.unsqueeze(D, -1).to(D.device)
 
     RBF = torch.exp(-((D_expand - D_mu) / D_sigma)**2)
    
@@ -141,7 +141,7 @@ def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
 
     # We floor here at 0.1 but the exact level is not important; if q_abs is small,
     # the candidate won't be picked.
-    flr = torch.tensor(0.1).to(dtype=q_abs.dtype, device=q_abs.device)
+    flr = torch.tensor(0.1).to(q_abs)
     quat_candidates = quat_by_rijk / (2.0 * q_abs[..., None].max(flr))
 
     # if not for numerical problems, quat_candidates[i] should be same (up to a sign),

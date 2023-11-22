@@ -77,7 +77,7 @@ def rotate_sidechain(
 
 def frame_to_pos(frames, aatype_idx, bb_cords):
     # [21 , 14]
-    group_index = torch.tensor(restype_atom14_to_rigid_group).to('cuda')
+    group_index = torch.tensor(restype_atom14_to_rigid_group).to(frames.device)
 
     # [21 , 14] idx [*, N] -> [*, N, 14]
     group_mask = group_index[aatype_idx, ...]
@@ -91,12 +91,12 @@ def frame_to_pos(frames, aatype_idx, bb_cords):
     map_atoms_to_global = geometry.map_rigid_fn(map_atoms_to_global)
 
     # [21 , 14]
-    atom_mask = torch.tensor(restype_atom14_mask).to('cuda')
+    atom_mask = torch.tensor(restype_atom14_mask).to(frames.device)
     # [*, N, 14, 1]
     atom_mask = atom_mask[aatype_idx, ...].unsqueeze(-1)
 
     # [21, 14, 3]
-    default_pos = torch.tensor(restype_atom14_rigid_group_positions).to('cuda')
+    default_pos = torch.tensor(restype_atom14_rigid_group_positions).to(frames.device)
     # [*, N, 14, 3]
     default_pos = default_pos[aatype_idx, ...]
 
@@ -135,7 +135,7 @@ def atom14_to_atom37_batched(atom14, aa_idx):  # atom14: [*, N, 14, 3]
     residx_atom37_to_14 = restype_atom37_to_atom14[aa_idx]
 
     # [N, 37]
-    atom37_mask = torch.tensor(restype_atom37_mask).to('cuda')
+    atom37_mask = torch.tensor(restype_atom37_mask).to(atom14.device)
     atom37_mask = atom37_mask[aa_idx]
 
     # [N, 37, 3]

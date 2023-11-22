@@ -163,7 +163,7 @@ def place_dihedral(
         cross = lambda x, y: np.cross(x, y, axis=-1)
     else:
         ensure_tensor = (
-            lambda x: torch.tensor(x, requires_grad=False).to(a.device)
+            lambda x: torch.tensor(x, requires_grad=False).to((a.device)
             if not isinstance(x, torch.Tensor)
             else x.to(a.device)
         )
@@ -232,9 +232,7 @@ def nerf_build_batch_O(
     # (batch, 3(# atom), 3(3D coord))
     coords = (
         torch.tensor(np.array([N_INIT, CA_INIT, C_INIT]), requires_grad=True)
-        .repeat(batch, 1, 1)
-        .to(phi.device)
-    )
+        .repeat(batch, 1, 1).to(phi.device)
     assert coords.shape == (batch, 3, 3), f"Mismatched shape: {coords.shape}"
 
     # perform broadcasting of bond lengths
