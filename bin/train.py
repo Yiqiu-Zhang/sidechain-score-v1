@@ -28,8 +28,6 @@ import torch
 
 import pytorch_lightning as pl
 from pytorch_lightning.strategies.ddp import DDPStrategy
-from pytorch_lightning.strategies.ddp_spawn import DDPSpawnStrategy
-
 from torch_geometric.data import lightning
 
 sys.path.append(r"/mnt/petrelfs/zhangyiqiu/sidechain-score-v1")
@@ -140,12 +138,14 @@ def train(
     record_args_and_metadata(func_args, results_folder)
 
     graph_data = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl'
+    graph_data = dataset.preprocess_datapoints(graph_data = graph_data)
+
     transform = dataset.TorsionNoiseTransform()
-    dset = dataset.ProteinDataset(cache = graph_data, transform=transform)
-    
-    split_idx = int(len(dset) * 0.9)
-    train_set = dset[:split_idx]
-    validation_set = dset[split_idx:]
+    data_set = dataset.ProteinDataset(data = graph_data, transform=transform)
+
+    split_idx = int(len(graph_data) * 0.9)
+    train_set = data_set[:split_idx]
+    validation_set = data_set[split_idx:]
 
     if torch.cuda.is_available():
         effective_batch_size = int(batch_size / (ndevice *node))
@@ -156,7 +156,8 @@ def train(
     datamodule = lightning.LightningDataset(train_dataset=train_set,
                                             val_dataset=validation_set,
                                             batch_size=effective_batch_size,
-                                            pin_memory=True)
+                                            pin_memory=True,
+                                            num_workers=0)
 
     model = modelling.AngleDiffusion(
         lr=lr,
@@ -171,9 +172,6 @@ def train(
 
     callbacks = build_callbacks(outdir=results_folder)
 
-
-    # https://github.com/Lightning-AI/lightning/discussions/6761https://github.com/Lightning-AI/lightning/discussions/6761
-    # I change the timeout at .conda/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/constants.py
     strategy = DDPStrategy(find_unused_parameters=False)
 
     logging.info(f"Using gpu with strategy {strategy}")

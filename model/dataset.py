@@ -45,7 +45,7 @@ def rbf(D, D_min=0., D_max=20., D_count=16):
 def knn_graph(x, k):
 
     displacement = x[None, :, :] - x[:, None, :]
-    distance = torch.linalg.vector_norm(displacement, dim=-1).float()
+    distance = torch.linalg.vector_norm(displacement, dim=-1).float().to(x)
 
     # Value of distance [N_rigid, K], Index of distance [N_rigid, K]
     distance, E_idx = torch.topk(distance, k, dim=-1, largest=False)
@@ -107,16 +107,16 @@ class TorsionNoiseTransform(BaseTransform):
         self.sigma_max = sigma_max
 
     def __call__(self, data):
-
+        print(f'.to(data.true_chi.device){data.true_chi.device}')
         sigma = np.exp(np.random.uniform(low=np.log(self.sigma_min), high=np.log(self.sigma_max)))
-        sigma = torch.tensor(sigma)
-        noise = torch.normal(0, sigma, size=data.true_chi.shape)
+        sigma = torch.tensor(sigma).to(data.true_chi.device)
+        noise = torch.normal(0, sigma, size=data.true_chi.shape).to(data.true_chi.device)
         corrupted_angle = data.true_chi + noise
 
         data.node_sigma = sigma * torch.ones(data.num_nodes)
         data.res_sigma = sigma * torch.ones(data.true_chi.shape)
         data.noise = noise
-
+        
         data, _ = transform_structure(data, corrupted_angle)
 
         return data
@@ -126,34 +126,35 @@ class TorsionNoiseTransform(BaseTransform):
                 f'sigma_max={self.sigma_max})')
 
 class ProteinDataset(Dataset):
-    def __init__(self,cache=None, pickle_dir=None, transform = None):
+    def __init__(self,data, transform = None):
 
         super(ProteinDataset, self).__init__(transform)
         self.transform = transform
-        if cache and os.path.exists(cache):
-            print('Reusing preprocessing from cache', cache)
-            with open(cache, "rb") as f:
-                self.proteins = pickle.load(f)
-        else:
-            print("Preprocessing")
-            self.proteins = self.preprocess_datapoints(pickle_dir)
-            if cache:
-                print("Caching at", cache)
-                with open(cache, "wb") as f:
-                    pickle.dump(self.proteins, f)
+        self.proteins = data
 
     def len(self): return len(self.proteins)
     def get(self, item):
         protein =  self.proteins[item]
         return copy.deepcopy(protein)
 
-    def preprocess_datapoints(self, dir):
+def preprocess_datapoints(graph_data=None, raw_dir=None):
 
-        with open(dir, "rb") as file:
+    if graph_data and os.path.exists(graph_data):
+        print('Reusing graph_data', graph_data)
+        with open(graph_data, "rb") as f:
+            proteins = pickle.load(f)
+    else:
+        print("Preprocessing")
+        with open(raw_dir, "rb") as file:
             proteins_list = pickle.load(file)
 
-        graph = []
+        proteins = []
         for protein in proteins_list:
-            graph.append(protein_to_graph(protein))
+            proteins.append(protein_to_graph(protein))
 
-        return graph
+        if graph_data:
+            print("Store_data at", graph_data)
+            with open(graph_data, "wb") as f:
+                pickle.dump(proteins, f)
+       
+    return proteins
