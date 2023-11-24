@@ -107,7 +107,6 @@ class TorsionNoiseTransform(BaseTransform):
         self.sigma_max = sigma_max
 
     def __call__(self, data):
-        print(f'.to(data.true_chi.device){data.true_chi.device}')
         sigma = np.exp(np.random.uniform(low=np.log(self.sigma_min), high=np.log(self.sigma_max)))
         sigma = torch.tensor(sigma).to(data.true_chi.device)
         noise = torch.normal(0, sigma, size=data.true_chi.shape).to(data.true_chi.device)

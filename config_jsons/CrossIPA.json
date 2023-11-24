@@ -2,7 +2,7 @@
     "angles_definitions": "side-chain-angles",
     "timesteps": 1000,
     "max_seq_len": 128,
-    "min_seq_len": 40,
+    "min_seq_len": 0,
     "trim_strategy": "leftalign",
     "variance_schedule": "cosine",
     "variance_scale": 1.0,
@@ -20,6 +20,7 @@
     "max_epochs": 5000,
     "early_stop_patience": 0,
     "use_swa": false,
-    "batch_size": 128,
-    "multithread": true
+    "batch_size":112,
+    "multithread": true,
+    "pred_all": true
 }

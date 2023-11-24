@@ -1,0 +1,84 @@
+ModuleCmd_Load.c(213):ERROR:105: Unable to locate a modulefile for 'NCCL/2.4.7-1-cuda.10.0'
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+WARNING:root:Removing old results directory: result_graphIPA_m
+INFO:root:Writing training args to result_graphIPA_m/training_args.json
+INFO:root:Training argument: results_dir=result_graphIPA_m
+INFO:root:Training argument: dataset_key=bc40
+INFO:root:Training argument: gradient_clip=1.0
+INFO:root:Training argument: batch_size=192
+INFO:root:Training argument: lr=0.0005
+INFO:root:Training argument: l2_norm=0.0
+INFO:root:Training argument: l1_norm=0.0
+INFO:root:Training argument: min_epochs=5000
+INFO:root:Training argument: max_epochs=5000
+INFO:root:Training argument: lr_scheduler=LinearWarmup
+INFO:root:Training argument: cpu_only=False
+INFO:root:Training argument: ndevice=8
+INFO:root:Training argument: node=1
+INFO:root:Training argument: write_valid_preds=False
+srun: error: SH-IDC1-10-140-1-55: task 0: Killed
+srun: error: SH-IDC1-10-140-1-55: task 1: Killed
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmp1k7864vf
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmp1k7864vf/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f155af1ce80>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7f155af1caf0>
+Initializing distributed: GLOBAL_RANK: 4, MEMBER: 5/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpujz1_n_9
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpujz1_n_9/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f5e7fa28730>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7f5e7fa28af0>
+Initializing distributed: GLOBAL_RANK: 6, MEMBER: 7/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmp5qjfyqhh
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmp5qjfyqhh/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f637f6e9c10>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7f637f6e9220>
+Initializing distributed: GLOBAL_RANK: 5, MEMBER: 6/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpvsyax30o
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpvsyax30o/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fec52074730>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7fec52074af0>
+Initializing distributed: GLOBAL_RANK: 2, MEMBER: 3/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpy81ynn_d
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpy81ynn_d/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fe22d9be730>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7fe22d9beaf0>
+Initializing distributed: GLOBAL_RANK: 7, MEMBER: 8/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpnitkygmh
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpnitkygmh/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7ff626851730>]
+INFO:root:Using cuda with strategy <pytorch_lightning.strategies.ddp.DDPStrategy object at 0x7ff626851af0>
+Initializing distributed: GLOBAL_RANK: 3, MEMBER: 4/8
+srun: Job step aborted: Waiting up to 2 seconds for job step to finish.
+srun: Easily find out why your job was killed by following the link below:
+	https://docs.phoenix.sensetime.com/FAQ/SlurmFAQ/Find-out-why-my-job-was-killed/
+slurmstepd: error: *** JOB 10335601 ON SH-IDC1-10-140-1-55 CANCELLED AT 2023-11-21T10:20:50 ***
+srun: got SIGCONT
+slurmstepd: error: *** STEP 10335601.0 ON SH-IDC1-10-140-1-55 CANCELLED AT 2023-11-21T10:20:50 ***
+srun: forcing job termination

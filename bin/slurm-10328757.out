@@ -1,0 +1,356 @@
+ModuleCmd_Load.c(213):ERROR:105: Unable to locate a modulefile for 'NCCL/2.4.7-1-cuda.10.0'
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+WARNING:root:Removing old results directory: result_graphIPA_m
+INFO:root:Writing training args to result_graphIPA_m/training_args.json
+INFO:root:Training argument: results_dir=result_graphIPA_m
+INFO:root:Training argument: dataset_key=bc40
+INFO:root:Training argument: gradient_clip=1.0
+INFO:root:Training argument: batch_size=144
+INFO:root:Training argument: lr=0.0005
+INFO:root:Training argument: l2_norm=0.0
+INFO:root:Training argument: l1_norm=0.0
+INFO:root:Training argument: min_epochs=5000
+INFO:root:Training argument: max_epochs=5000
+INFO:root:Training argument: lr_scheduler=LinearWarmup
+INFO:root:Training argument: cpu_only=False
+INFO:root:Training argument: ndevice=4
+INFO:root:Training argument: node=2
+INFO:root:Training argument: write_valid_preds=False
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpo4s4h_e_
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpo4s4h_e_/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f78ca8e32e0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 4, MEMBER: 5/8
+Given batch size: 144 --> effective batch size with 8 GPUs: 18
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpmfjei372
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpmfjei372/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fe44da9f2e0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 3, MEMBER: 4/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmp57otd3ne
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmp57otd3ne/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fe4b2ba82e0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 6, MEMBER: 7/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpi9nju9e_
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpi9nju9e_/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7ff9367aad30>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 7, MEMBER: 8/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpmklowo4x
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpmklowo4x/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fd3547079d0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 5, MEMBER: 6/8
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmp3d80io4q
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmp3d80io4q/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7f3f230752e0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 2, MEMBER: 3/8
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpflgrclrz
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpflgrclrz/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7fb7aae94550>]
+INFO:root:Using gpu with strategy ddp
+Multiprocessing is handled by SLURM.
+GPU available: True, used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/8
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 6
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 4
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 3
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 7
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 5
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 2
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:47: UserWarning: An issue occurred while importing 'pyg-lib'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'pyg-lib'. "
+/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch_geometric/typing.py:101: UserWarning: An issue occurred while importing 'torch-sparse'. Disabling its usage. Stacktrace: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/libpyg.so)
+  warnings.warn(f"An issue occurred while importing 'torch-sparse'. "
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpy4udchwt
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpy4udchwt/_remote_module_non_scriptable.py
+INFO:root:Model callbacks: [<pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint object at 0x7ff30ac0b2e0>]
+INFO:root:Using gpu with strategy ddp
+Initializing distributed: GLOBAL_RANK: 1, MEMBER: 2/8
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 1
+INFO:torch.distributed.distributed_c10d:Added key: store_based_barrier_key:1 to store for rank: 0
+INFO:torch.distributed.distributed_c10d:Rank 5: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 0: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 8 processes
+----------------------------------------------------------------------------------------------------
+
+INFO:torch.distributed.distributed_c10d:Rank 3: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 4: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 7: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 2: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 6: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+INFO:torch.distributed.distributed_c10d:Rank 1: Completed store-based barrier for key:store_based_barrier_key:1 with 8 nodes.
+SH-IDC1-10-140-1-24:513630:513630 [0] NCCL INFO Bootstrap : Using eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513630:513630 [0] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-24:513630:513630 [0] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513630:513630 [0] NCCL INFO Using network IB
+NCCL version 2.10.3+cuda11.3
+SH-IDC1-10-140-1-149:493849:493849 [0] NCCL INFO Bootstrap : Using eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493849:493849 [0] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-149:493849:493849 [0] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493849:493849 [0] NCCL INFO Using network IB
+SH-IDC1-10-140-1-24:513632:513632 [2] NCCL INFO Bootstrap : Using eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513632:513632 [2] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-24:513632:513632 [2] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513632:513632 [2] NCCL INFO Using network IB
+SH-IDC1-10-140-1-149:493851:493851 [2] NCCL INFO Bootstrap : Using eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-24:513633:513633 [3] NCCL INFO Bootstrap : Using eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-149:493850:493850 [1] NCCL INFO Bootstrap : Using eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493851:493851 [2] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-24:513633:513633 [3] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-149:493850:493850 [1] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-149:493852:493852 [3] NCCL INFO Bootstrap : Using eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493852:493852 [3] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-149:493851:493851 [2] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493851:493851 [2] NCCL INFO Using network IB
+SH-IDC1-10-140-1-24:513633:513633 [3] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513633:513633 [3] NCCL INFO Using network IB
+SH-IDC1-10-140-1-149:493850:493850 [1] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493850:493850 [1] NCCL INFO Using network IB
+SH-IDC1-10-140-1-149:493852:493852 [3] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.149<0>
+SH-IDC1-10-140-1-149:493852:493852 [3] NCCL INFO Using network IB
+SH-IDC1-10-140-1-24:513631:513631 [1] NCCL INFO Bootstrap : Using eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513631:513631 [1] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+SH-IDC1-10-140-1-24:513631:513631 [1] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB ; OOB eth2:10.140.13.24<0>
+SH-IDC1-10-140-1-24:513631:513631 [1] NCCL INFO Using network IB
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Trees [0] 5/-1/-1->4->0 [1] 5/0/-1->4->-1
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 00/02 :    0   3   2   1   4   7   6   5
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 01/02 :    0   3   2   1   4   7   6   5
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Trees [0] 1/4/-1->0->-1 [1] 1/-1/-1->0->4
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Setting affinity for GPU 0 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO Trees [0] 2/-1/-1->1->0 [1] 2/-1/-1->1->0
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO Setting affinity for GPU 1 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO Trees [0] 6/-1/-1->5->4 [1] 6/-1/-1->5->4
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO Setting affinity for GPU 1 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Setting affinity for GPU 0 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-149:493852:505207 [3] NCCL INFO Trees [0] -1/-1/-1->7->6 [1] -1/-1/-1->7->6
+SH-IDC1-10-140-1-24:513632:1334 [2] NCCL INFO Trees [0] 3/-1/-1->2->1 [1] 3/-1/-1->2->1
+SH-IDC1-10-140-1-24:513632:1334 [2] NCCL INFO Setting affinity for GPU 2 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-149:493851:505205 [2] NCCL INFO Trees [0] 7/-1/-1->6->5 [1] 7/-1/-1->6->5
+SH-IDC1-10-140-1-24:513633:1336 [3] NCCL INFO Trees [0] -1/-1/-1->3->2 [1] -1/-1/-1->3->2
+SH-IDC1-10-140-1-149:493852:505207 [3] NCCL INFO Setting affinity for GPU 3 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-24:513633:1336 [3] NCCL INFO Setting affinity for GPU 3 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-149:493851:505205 [2] NCCL INFO Setting affinity for GPU 2 to ffffffff,00000000,ffffffff
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO Channel 00 : 1[56000] -> 4[51000] [send] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Channel 00 : 1[56000] -> 4[51000] [receive] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO Channel 01 : 1[56000] -> 4[51000] [send] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Channel 01 : 1[56000] -> 4[51000] [receive] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 00 : 5[56000] -> 0[51000] [receive] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Channel 00 : 4[51000] -> 7[71000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 01 : 5[56000] -> 0[51000] [receive] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO Channel 01 : 4[51000] -> 7[71000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 00 : 0[51000] -> 3[71000] via P2P/IPC/read
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO Channel 00 : 5[56000] -> 0[51000] [send] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-24:513632:1334 [2] NCCL INFO Channel 00 : 2[6b000] -> 1[56000] via P2P/IPC/read
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO Channel 01 : 5[56000] -> 0[51000] [send] via NET/IB/0/GDRDMA
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO Channel 01 : 0[51000] -> 3[71000] via P2P/IPC/read
+SH-IDC1-10-140-1-149:493851:505205 [2] NCCL INFO Channel 00 : 6[6b000] -> 5[56000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513632:1334 [2] NCCL INFO Channel 01 : 2[6b000] -> 1[56000] via P2P/IPC/read
+SH-IDC1-10-140-1-149:493851:505205 [2] NCCL INFO Channel 01 : 6[6b000] -> 5[56000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513633:1336 [3] NCCL INFO Channel 00 : 3[71000] -> 2[6b000] via P2P/IPC/read
+
+SH-IDC1-10-140-1-149:493850:505206 [1] misc/ibvwrap.cc:268 NCCL WARN Call to ibv_create_cq failed
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO transport/net_ib.cc:358 -> 2
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO transport/net_ib.cc:457 -> 2
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO include/net.h:21 -> 2
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO transport/net.cc:210 -> 2
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO transport.cc:111 -> 2
+SH-IDC1-10-140-1-24:513633:1336 [3] NCCL INFO Channel 01 : 3[71000] -> 2[6b000] via P2P/IPC/read
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO init.cc:778 -> 2
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO init.cc:904 -> 2
+SH-IDC1-10-140-1-24:513633:1336 [3] NCCL INFO Connected all rings
+SH-IDC1-10-140-1-149:493850:505206 [1] NCCL INFO group.cc:72 -> 2 [Async thread]
+
+SH-IDC1-10-140-1-24:513631:1338 [1] misc/ibvwrap.cc:268 NCCL WARN Call to ibv_create_cq failed
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO transport/net_ib.cc:358 -> 2
+SH-IDC1-10-140-1-149:493852:505207 [3] NCCL INFO Channel 00 : 7[71000] -> 6[6b000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO transport/net_ib.cc:457 -> 2
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO include/net.h:21 -> 2
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO transport/net.cc:210 -> 2
+SH-IDC1-10-140-1-149:493852:505207 [3] NCCL INFO Channel 01 : 7[71000] -> 6[6b000] via P2P/IPC/read
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO transport.cc:111 -> 2
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO init.cc:778 -> 2
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO init.cc:904 -> 2
+SH-IDC1-10-140-1-149:493852:505207 [3] NCCL INFO Connected all rings
+SH-IDC1-10-140-1-24:513631:1338 [1] NCCL INFO group.cc:72 -> 2 [Async thread]
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Traceback (most recent call last):
+  File "train.py", line 297, in <module>
+    main()
+  File "train.py", line 284, in main
+    train(**config_args)
+  File "train.py", line 208, in train
+    trainer.fit(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 770, in fit
+    self._call_and_handle_interrupt(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 723, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 811, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1172, in _run
+    self.__setup_profiler()
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1797, in __setup_profiler
+    self.profiler.setup(stage=self.state.fn._setup_fn, local_rank=local_rank, log_dir=self.log_dir)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 2249, in log_dir
+    dirpath = self.strategy.broadcast(dirpath)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/strategies/ddp.py", line 319, in broadcast
+    torch.distributed.broadcast_object_list(obj, src, group=_group.WORLD)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1877, in broadcast_object_list
+    broadcast(object_sizes_tensor, src=src, group=group)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1193, in broadcast
+    work = default_pg.broadcast([tensor], opts)
+RuntimeError: NCCL error in: /opt/conda/conda-bld/pytorch_1659484810403/work/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:1191, unhandled system error, NCCL version 2.10.3
+ncclSystemError: System call (e.g. socket, malloc) or external library call failed or device error. It can be also caused by unexpected exit of a remote peer, you can check NCCL warnings for failure reason and see if there is connection closure by a peer.
+Traceback (most recent call last):
+  File "train.py", line 297, in <module>
+    main()
+  File "train.py", line 284, in main
+    train(**config_args)
+  File "train.py", line 208, in train
+    trainer.fit(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 770, in fit
+    self._call_and_handle_interrupt(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 723, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 811, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1172, in _run
+    self.__setup_profiler()
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1797, in __setup_profiler
+    self.profiler.setup(stage=self.state.fn._setup_fn, local_rank=local_rank, log_dir=self.log_dir)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 2249, in log_dir
+    dirpath = self.strategy.broadcast(dirpath)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/strategies/ddp.py", line 319, in broadcast
+    torch.distributed.broadcast_object_list(obj, src, group=_group.WORLD)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1877, in broadcast_object_list
+    broadcast(object_sizes_tensor, src=src, group=group)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1193, in broadcast
+    work = default_pg.broadcast([tensor], opts)
+RuntimeError: NCCL error in: /opt/conda/conda-bld/pytorch_1659484810403/work/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:1191, unhandled system error, NCCL version 2.10.3
+ncclSystemError: System call (e.g. socket, malloc) or external library call failed or device error. It can be also caused by unexpected exit of a remote peer, you can check NCCL warnings for failure reason and see if there is connection closure by a peer.
+
+SH-IDC1-10-140-1-24:513630:1331 [0] include/socket.h:423 NCCL WARN Net : Connection closed by remote peer 10.140.13.149<36744>
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO include/socket.h:445 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO include/socket.h:457 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO transport/net_ib.cc:505 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO include/net.h:22 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO transport/net.cc:234 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO transport.cc:119 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO init.cc:778 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO init.cc:904 -> 2
+SH-IDC1-10-140-1-24:513630:1331 [0] NCCL INFO group.cc:72 -> 2 [Async thread]
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Traceback (most recent call last):
+  File "train.py", line 297, in <module>
+    main()
+  File "train.py", line 284, in main
+    train(**config_args)
+  File "train.py", line 208, in train
+    trainer.fit(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 770, in fit
+    self._call_and_handle_interrupt(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 723, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 811, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1172, in _run
+    self.__setup_profiler()
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1797, in __setup_profiler
+    self.profiler.setup(stage=self.state.fn._setup_fn, local_rank=local_rank, log_dir=self.log_dir)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 2249, in log_dir
+    dirpath = self.strategy.broadcast(dirpath)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/strategies/ddp.py", line 319, in broadcast
+    torch.distributed.broadcast_object_list(obj, src, group=_group.WORLD)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1877, in broadcast_object_list
+    broadcast(object_sizes_tensor, src=src, group=group)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1193, in broadcast
+    work = default_pg.broadcast([tensor], opts)
+RuntimeError: NCCL error in: /opt/conda/conda-bld/pytorch_1659484810403/work/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:1191, unhandled system error, NCCL version 2.10.3
+ncclSystemError: System call (e.g. socket, malloc) or external library call failed or device error. It can be also caused by unexpected exit of a remote peer, you can check NCCL warnings for failure reason and see if there is connection closure by a peer.
+srun: error: SH-IDC1-10-140-1-149: task 5: Exited with exit code 1
+
+SH-IDC1-10-140-1-149:493849:505201 [0] include/socket.h:423 NCCL WARN Net : Connection closed by remote peer 10.140.13.24<36393>
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO include/socket.h:445 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO include/socket.h:457 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO transport/net_ib.cc:505 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO include/net.h:22 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO transport/net.cc:234 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO transport.cc:119 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO init.cc:778 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO init.cc:904 -> 2
+SH-IDC1-10-140-1-149:493849:505201 [0] NCCL INFO group.cc:72 -> 2 [Async thread]
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Reusing preprocessing from cache /mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl
+Traceback (most recent call last):
+  File "train.py", line 297, in <module>
+    main()
+  File "train.py", line 284, in main
+    train(**config_args)
+  File "train.py", line 208, in train
+    trainer.fit(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 770, in fit
+    self._call_and_handle_interrupt(
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 723, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 811, in _fit_impl
+    results = self._run(model, ckpt_path=self.ckpt_path)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1172, in _run
+    self.__setup_profiler()
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 1797, in __setup_profiler
+    self.profiler.setup(stage=self.state.fn._setup_fn, local_rank=local_rank, log_dir=self.log_dir)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py", line 2249, in log_dir
+    dirpath = self.strategy.broadcast(dirpath)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/pytorch_lightning/strategies/ddp.py", line 319, in broadcast
+    torch.distributed.broadcast_object_list(obj, src, group=_group.WORLD)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1877, in broadcast_object_list
+    broadcast(object_sizes_tensor, src=src, group=group)
+  File "/mnt/petrelfs/zhangyiqiu/miniconda3/envs/IPAsidechain/lib/python3.8/site-packages/torch/distributed/distributed_c10d.py", line 1193, in broadcast
+    work = default_pg.broadcast([tensor], opts)
+RuntimeError: NCCL error in: /opt/conda/conda-bld/pytorch_1659484810403/work/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:1191, unhandled system error, NCCL version 2.10.3
+ncclSystemError: System call (e.g. socket, malloc) or external library call failed or device error. It can be also caused by unexpected exit of a remote peer, you can check NCCL warnings for failure reason and see if there is connection closure by a peer.
+srun: error: SH-IDC1-10-140-1-24: task 1: Exited with exit code 1
+srun: error: SH-IDC1-10-140-1-24: task 0: Exited with exit code 1
+srun: error: SH-IDC1-10-140-1-149: task 4: Exited with exit code 1
+srun: Job step aborted: Waiting up to 2 seconds for job step to finish.
+slurmstepd: error: *** JOB 10328757 ON SH-IDC1-10-140-1-24 CANCELLED AT 2023-11-20T19:29:58 ***
+srun: Easily find out why your job was killed by following the link below:
+	https://docs.phoenix.sensetime.com/FAQ/SlurmFAQ/Find-out-why-my-job-was-killed/
+slurmstepd: error: *** STEP 10328757.0 ON SH-IDC1-10-140-1-24 CANCELLED AT 2023-11-20T19:29:58 ***
