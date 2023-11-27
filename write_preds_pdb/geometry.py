@@ -216,9 +216,9 @@ class Rigid:
             Returns:
                 The device of the underlying rotation
         """
-        if(self.rot_mats is not None):
-            assert self.rot_mats.device == self.loc.device
-            return self.rot_mats.device
+        if(self.rot.get_rot_mat() is not None):
+            assert self.rot.get_rot_mat().device == self.loc.device
+            return self.loc.device
         else:
             raise ValueError("Both rotations are None")
 

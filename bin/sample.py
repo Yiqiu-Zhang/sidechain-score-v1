@@ -131,8 +131,10 @@ def main() -> None:
 
     #test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
     test_graph_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_graph.pkl'
+    graph_data = dataset.preprocess_datapoints(graph_data = test_graph_name)
+
     sample_transform = dataset.SampleNoiseTransform()
-    data = dataset.ProteinDataset(cache = test_graph_name,transform=sample_transform) #, pickle_dir = test_data_name
+    data = dataset.ProteinDataset(data = graph_data, transform=sample_transform) #, pickle_dir = test_data_name
     
     outdir_pdb = outdir / "sampled_pdb"
     os.makedirs(outdir_pdb, exist_ok=True)
@@ -145,16 +147,6 @@ def main() -> None:
             
             prot_gpu = copy.deepcopy(protein).to('cuda')
             pdbname = Path(protein.fname).name
-
-            '''
-            empty = torch.zeros(protein.true_chi.shape).cuda()
-            _, _, frame = torsion_to_frame(empty, protein)
-            pos = frame_to_pos(frame.cuda(), 
-                               protein.aatype,
-                               protein.bb_coord)
-            
-            write_pdb_from_position(protein, pos, outdir_pdb, pdbname, i+100)
-            '''
 
             all_atom_positions = sampling.p_sample_loop_score(model, prot_gpu)            
             write_pdb_from_position(protein, all_atom_positions, outdir_pdb, pdbname, i)
