@@ -17,10 +17,9 @@ from foldingdiff import sampling_score as sampling
 from model import dataset
 
 import glob
-from write_preds_pdb.structure_build_score import write_pdb_from_position, torsion_to_frame, frame_to_pos
+from write_preds_pdb.structure_build_score import write_pdb_from_position
 
 
-from foldingdiff.ESM1b_embedding import add_esm1b_embedding
 from foldingdiff.data_pipeline import process_pdb
 
 SEED = int(
@@ -139,13 +138,13 @@ def main() -> None:
     outdir_pdb = outdir / "sampled_pdb"
     os.makedirs(outdir_pdb, exist_ok=True)
 
-    for i in range(5):
-        for protein in data[:1]:
+    for i in range(10):
+        for protein in data:
             
             if len(protein.aatype)>128:
                 continue
             
-            prot_gpu = copy.deepcopy(protein).to('cuda')
+            prot_gpu = protein.to('cuda')
             pdbname = Path(protein.fname).name
 
             all_atom_positions = sampling.p_sample_loop_score(model, prot_gpu)            

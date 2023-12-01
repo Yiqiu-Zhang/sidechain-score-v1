@@ -20,15 +20,15 @@ device1 = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def rotate_sidechain(
-        restype_idx: torch.Tensor,  # [*, N]
-        angles: torch.Tensor,  # [*,N,4，2]
-        last_local_r: geometry.Rigid,  # [*, N, 8] Rigid
+        restype_idx: torch.Tensor,  # [N]
+        angles: torch.Tensor,  # [N,4，2]
+        last_local_r: geometry.Rigid,  # [N, 8] Rigid
 ) -> geometry.Rigid:
     
     sin_angles = torch.sin(angles) 
     cos_angles = torch.cos(angles)
 
-    # [*,N,4] + [*,N,4] == [*,N,8]
+    # [N,4] + [N,4] == [N,8]
     # adding 4 zero angles which means no change to the default value.
     sin_angles = torch.cat([torch.zeros(*restype_idx.shape, 4).to(sin_angles.device), sin_angles], dim=-1)
     cos_angles = torch.cat([torch.ones(*restype_idx.shape, 4).to(sin_angles.device), cos_angles], dim=-1)
@@ -318,36 +318,6 @@ def write_pdb_from_position(graph, final_atom_positions, out_path, fname, j):
 
     with open(os.path.join(out_path, f"{fname}_generate_{j}.pdb"), 'w') as fp:
         fp.write(pdb_str)
-
-
-def write_preds_pdb_file(structure, sampled_dfs, out_path, fname, j):
-    final_atom_mask = restype_atom37_mask[structure["seq"]]
-
-    seq_list = torch.from_numpy(structure["seq"])
-    coord_list = structure["coords"]
-
-    coord_list = torch.from_numpy(coord_list)
-    angle_list = torch.from_numpy(sampled_dfs)
-    default_r = get_default_r(seq_list, angle_list)
-    final_atom_positions = torsion_to_position(seq_list,
-                                               coord_list,
-                                               angle_list,
-                                               default_r)
-
-    chain_len = len(seq_list)
-    index = np.arange(1, chain_len + 1)
-    resulted_protein = protein.Protein(
-        aatype=structure["seq"],  # [*,N]
-        atom_positions=final_atom_positions,
-        atom_mask=final_atom_mask,
-        residue_index=index,  # 0,1,2,3,4 range_chain
-        b_factors=np.zeros_like(final_atom_mask))
-
-    pdb_str = protein.to_pdb(resulted_protein)
-
-    with open(os.path.join(out_path, f"{fname}_generate_{j}.pdb"), 'w') as fp:
-        fp.write(pdb_str)
-
 
 def get_chi_atom_indices():
     """Returns atom indices needed to compute chi angles for all residue types.

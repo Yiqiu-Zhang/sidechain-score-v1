@@ -144,8 +144,10 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         """
         Training step, runs once per batch
         """
+        
         predicted_score = self.forward(batch)
         avg_loss = losses.score_loss(predicted_score, batch)
+
         self.log("train_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
 
         return avg_loss

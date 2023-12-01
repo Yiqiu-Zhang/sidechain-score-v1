@@ -1,7 +1,7 @@
 import copy
 
 from data_preprocessing import protein_to_graph
-import write_preds_pdb.structure_build_score as structure_build
+from write_preds_pdb.structure_build_score import torsion_to_frame
 
 import torch
 import numpy as np
@@ -56,7 +56,7 @@ def knn_graph(x, k):
     
 def transform_structure(protein, noise):
 
-    rigids, local_r, all_frames_to_global = structure_build.torsion_to_frame(noise, protein)
+    rigids, local_r, all_frames_to_global = torsion_to_frame(noise, protein)
     # this is [N_rigid]
     k = 32 if protein.num_nodes >= 32 else protein.num_nodes
     edge_index, distance = knn_graph(rigids.loc, k)
@@ -74,7 +74,6 @@ def transform_structure(protein, noise):
                               ],
                              dim=-1).float()
 
-
     protein.edge_attr = edge_feature
     protein.edge_index = edge_index
     protein.rigid = rigids
@@ -83,19 +82,17 @@ def transform_structure(protein, noise):
     return protein, all_frames_to_global
 
 class SampleNoiseTransform(BaseTransform):
-    def __init__(self, sigma_min=0.01 * np.pi, sigma_max=np.pi):
-        self.sigma_min = sigma_min
-        self.sigma_max = sigma_max
+    def __init__(self):
 
-    def __call__(self, data):
+        self.ramdom_sample = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
 
-        ramdom_sample = torch.distributions.uniform.Uniform(-torch.pi, torch.pi)
+    def __call__(self, protein):
 
-        corrupted_angles = ramdom_sample.sample(data.true_chi.shape)
+        corrupted_angles = self.ramdom_sample.sample(protein.true_chi.shape)
         
-        data, _ = transform_structure(data, corrupted_angles)
+        protein, _ = transform_structure(protein, corrupted_angles)
 
-        return data
+        return protein
 
     def __repr__(self) -> str:
         return (f'{self.__class__.__name__}(sigma_min={self.sigma_min}, '
@@ -106,19 +103,19 @@ class TorsionNoiseTransform(BaseTransform):
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
 
-    def __call__(self, data):
+    def __call__(self, protein):
         sigma = np.exp(np.random.uniform(low=np.log(self.sigma_min), high=np.log(self.sigma_max)))
-        sigma = torch.tensor(sigma).to(data.true_chi.device)
-        noise = torch.normal(0, sigma, size=data.true_chi.shape).to(data.true_chi.device)
-        corrupted_angle = data.true_chi + noise
+        sigma = torch.tensor(sigma).to(protein.true_chi.device)
+        noise = torch.normal(0, sigma, size=protein.true_chi.shape).to(protein.true_chi.device)
+        corrupted_angle = protein.true_chi + noise
 
-        data.node_sigma = sigma * torch.ones(data.num_nodes)
-        data.res_sigma = sigma * torch.ones(data.true_chi.shape)
-        data.noise = noise
+        protein.node_sigma = sigma * torch.ones(protein.num_nodes)
+        protein.res_sigma = sigma * torch.ones(protein.true_chi.shape)
+        protein.noise = noise
         
-        data, _ = transform_structure(data, corrupted_angle)
+        protein, _ = transform_structure(protein, corrupted_angle)
 
-        return data
+        return protein
 
     def __repr__(self) -> str:
         return (f'{self.__class__.__name__}(sigma_min={self.sigma_min}, '

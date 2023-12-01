@@ -195,7 +195,7 @@ class GraphIPA(MessagePassing, ABC):
         o_pt = o_pt.reshape(n_edge, -1, 3)
 
         # [E, H * Pv * 3 + C_hidden + C_e]
-        return torch.cat((o, *torch.unbind(o_pt, dim=-1), o_pair), dim=-1)
+        return torch.cat((*torch.unbind(o_pt, dim=-1), o, o_pair), dim=-1)
 
 
     # no update, just return the output
