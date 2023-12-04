@@ -180,8 +180,8 @@ class AngleScore(nn.Module):
         self.no_angles = no_angles
         self.eps = epsilon
 
-        self.linear_in = nn.Linear(self.c_n, self.c_hidden)
-        self.linear_initial = nn.Linear(self.c_n, self.c_hidden)
+        self.linear_in = nn.Linear(self.c_n * 5, self.c_hidden)
+        self.linear_initial = nn.Linear(self.c_n * 5, self.c_hidden)
 
         self.layers = nn.ModuleList()
         for _ in range(self.no_blocks):
@@ -435,12 +435,17 @@ class RigidDiffusion(nn.Module):
           
         # [N_rigid, c_n]
         node_emb = self.structure_update(data, init_node_emb, pair_emb)
-
-        rigid_graph_index = torch.arange(0, len(data.aatype)).unsqueeze(-1).repeat(1, 5).reshape(-1).to(node_emb.device)
-        rigid_graph_index = rigid_graph_index[data.rigid_mask].to(int)
-
-        residue_emb = torch_scatter.scatter_mean(node_emb, rigid_graph_index, dim=0)
-        init_residue_emb = torch_scatter.scatter_mean(init_node_emb, rigid_graph_index, dim=0)
+     
+        # [N_res, 5, c_n]
+        init_residue_emb = torch.zeros(data.rigid_mask.shape[0], init_node_emb.shape[-1]).to(node_emb.device)
+        init_residue_emb[data.rigid_mask] = init_node_emb
+        init_residue_emb = init_residue_emb.reshape(-1, 5, node_emb.shape[-1])
+        init_residue_emb = init_residue_emb.reshape(-1, 5* node_emb.shape[-1])
+        # [N_res, 5, c_n]
+        residue_emb = torch.zeros(data.rigid_mask.shape[0], node_emb.shape[-1]).to(node_emb.device)
+        residue_emb[data.rigid_mask] = node_emb
+        residue_emb = residue_emb.reshape(-1, 5, node_emb.shape[-1])
+        residue_emb = residue_emb.reshape(-1, 5* node_emb.shape[-1])
 
         # [N_res, c_n] -->  [N_res,4]    
         score = self.score_predictor(residue_emb, init_residue_emb)

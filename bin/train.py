@@ -127,7 +127,9 @@ def train(
     ndevice: int = -1,  # -1 for all GPUs
     node: int = 1,
     write_valid_preds: bool = False,  # Write validation predictions to disk at each epoch
-
+    graph_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl',
+    raw_dir = None,
+    num_workers= 0,
 ):
     """Main training loop"""
     # Record the args given to the function before we create more vars
@@ -137,8 +139,7 @@ def train(
     results_folder = Path(results_dir)
     record_args_and_metadata(func_args, results_folder)
 
-    graph_data = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl'
-    graph_data = dataset.preprocess_datapoints(graph_data = graph_data)
+    graph_data = dataset.preprocess_datapoints(graph_data = graph_data_name, raw_dir = raw_dir)
 
     transform = dataset.TorsionNoiseTransform()
     data_set = dataset.ProteinDataset(data = graph_data, transform=transform)
@@ -157,7 +158,8 @@ def train(
                                             val_dataset=validation_set,
                                             batch_size=effective_batch_size,
                                             pin_memory=True,
-                                            num_workers=0)
+                                            num_workers=num_workers,
+                                            persistent_workers = True,)
 
     model = modelling.AngleDiffusion(
         lr=lr,
@@ -184,7 +186,7 @@ def train(
         check_val_every_n_epoch=1,
         callbacks=callbacks,
         logger=pl.loggers.CSVLogger(save_dir=results_folder / "logs"),
-        log_every_n_steps=min(10,len(datamodule.train_dataloader())),  # Log >= once per epoch
+        log_every_n_steps=min(50,len(datamodule.train_dataloader())),  # Log >= once per epoch
         accelerator='gpu',
         strategy=strategy,
         devices=ndevice,

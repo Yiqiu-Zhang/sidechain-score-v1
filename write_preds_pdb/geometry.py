@@ -306,6 +306,13 @@ def from_tensor_4x4(t: torch.Tensor) -> Rigid:
     loc = t[...,:3, 4]
     return Rigid(rots, trans, loc)
 
+def to_tensor_5x5(r: Rigid) ->  torch.Tensor:
+    r_tensor = torch.zeros(*r.trans.shape[:-1],5,5)
+    r_tensor[...,:3,:3] = r.rot.get_rot_mat()
+    r_tensor[...,:3, 3] = r.trans
+    r_tensor[...,:3, 4] = r.loc
+    return r_tensor
+
 @lru_cache(maxsize=None)
 def identity_trans(
     batch_dims: Tuple[int],

@@ -6,8 +6,6 @@ import write_preds_pdb.geometry as geometry
 import torch
 import torch_geometric.data
 
-
-
 def get_default_r(restype_idx):
     default_frame = torch.tensor(restype_rigid_group_default_frame, device= restype_idx.device)
 
@@ -15,8 +13,8 @@ def get_default_r(restype_idx):
     res_default_frame = default_frame[restype_idx, ...]
 
     # [*, N, 8] Rigid
-    default_r = geometry.from_tensor_4x4(res_default_frame)
-    return default_r
+    #default_r = geometry.from_tensor_4x4(res_default_frame)
+    return res_default_frame
 
 def protein_to_graph(protein):
     angles = torch.as_tensor(protein['angles'])
@@ -56,10 +54,3 @@ def protein_to_graph(protein):
                                      )
 
     return data
-
-
-
-
-
-
-

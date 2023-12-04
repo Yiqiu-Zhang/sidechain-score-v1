@@ -1,0 +1,19 @@
+{
+    "results_dir": "test",
+    "dataset_key": "bc40",
+    "gradient_clip": 1.0,
+    "batch_size": 128,
+    "lr": 0.0005,
+    "l2_norm": 0.0,
+    "l1_norm": 0.0,
+    "min_epochs": 5000,
+    "max_epochs": 5000,
+    "lr_scheduler": "LinearWarmup",
+    "cpu_only": false,
+    "ndevice": 8,
+    "node": 2,
+    "write_valid_preds": false,
+    "graph_data_name": "/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data_graph.pkl",
+    "raw_dir": "/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/bc40_data.pkl",
+    "num_workers": 2
+}

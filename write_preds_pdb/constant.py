@@ -76,7 +76,24 @@ restype_name_to_atom14_names = {
 # is defined such that the dihedral-angle-definiting atom (the last entry in
 # chi_angles_atoms above) is in the xy-plane (with a positive y-coordinate).
 # format: [atomname, group_idx, rel_position]
+'''
+这里我们认为有用的几个vector: 
+local x axis (the rotational axis), 
+y axis atom coord (included in the atom positions), 
+local atom position. 
+Using GLN as an example, for the last rigid group 6, 
+the origin are CD atom, 
+the local atom position vector are 
+['NE2', 6, (0.593, -1.189, -0.001)],
+['OE1', 6, (0.634, 1.060, 0.000)]
+the X axis = (1, 0, 0),
+for rigid group 4,
+atom position:
+['CD', 5, (0.587, 1.399, -0.000)],
+the X axis = (1, 0, 0),
+for rigid group 4,
 
+'''
 residues_atom_position = {
     'ALA': [
         ['N', 0, (-0.525, 1.363, 0.000)],

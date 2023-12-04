@@ -25,6 +25,7 @@ def rotate_sidechain(
         last_local_r: geometry.Rigid,  # [N, 8] Rigid
 ) -> geometry.Rigid:
     
+    last_local_r = geometry.from_tensor_4x4(last_local_r)
     sin_angles = torch.sin(angles) 
     cos_angles = torch.cos(angles)
 
@@ -76,6 +77,7 @@ def rotate_sidechain(
 
 
 def frame_to_pos(frames, aatype_idx, bb_cords):
+    frames = geometry.from_tensor_4x4(frames)
     # [21 , 14]
     group_index = torch.tensor(restype_atom14_to_rigid_group).to(frames.device)
 

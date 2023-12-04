@@ -8,7 +8,7 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.dense.linear import Linear
 from torch_geometric.utils import softmax
 
-from write_preds_pdb.geometry import Rigid, Rotation
+from write_preds_pdb.geometry import Rigid, Rotation, from_tensor_4x4
 from write_preds_pdb.geometry import loc_invert_rot_mul_vec, loc_rigid_mul_vec
 from model.utils1 import ipa_point_weights_init_
 
@@ -74,14 +74,8 @@ class GraphIPA(MessagePassing, ABC):
 
         edge_index = data.edge_index
         n_edge = data.num_edges
-        r = data.rigid
-        if type(r) == list:
-            rot = torch.cat([rigid.rot.get_rot_mat() for rigid in r], 0).to(x.device)
-            trans = torch.cat([rigid.trans for rigid in r], 0).to(x.device)
-            loc = torch.cat([rigid.loc for rigid in r], 0).to(x.device)
-            r = Rigid(Rotation(rot), trans, loc)
-        else:
-            r = Rigid(Rotation(r.rot.get_rot_mat().to(x.device)), r.trans.to(x.device),r.loc.to(x.device))
+        
+        r = from_tensor_4x4(data.rigid.to(x.device))
 
         # [N, 2* H * C_hidden]
         src_kv = self.lin_src_kv(x)
@@ -196,6 +190,3 @@ class GraphIPA(MessagePassing, ABC):
 
         # [E, H * Pv * 3 + C_hidden + C_e]
         return torch.cat((*torch.unbind(o_pt, dim=-1), o, o_pair), dim=-1)
-
-
-    # no update, just return the output

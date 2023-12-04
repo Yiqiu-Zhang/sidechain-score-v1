@@ -148,7 +148,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         predicted_score = self.forward(batch)
         avg_loss = losses.score_loss(predicted_score, batch)
 
-        self.log("train_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
+        self.log("train_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size, rank_zero_only=True)
 
         return avg_loss
 
@@ -173,20 +173,8 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             predicted_score = self.forward(batch)
             avg_loss = losses.score_loss(predicted_score, batch)
             
-            self.write_preds_counter += 1
-
-        self.log("val_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size)
+            self.log("val_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size, rank_zero_only=True)
         return avg_loss
-
-    def validation_epoch_end(self, outputs) -> None:
-        """Log the average validation loss over the epoch"""
-        # Note that this method is called before zstraining_epoch_end().
-        losses = torch.stack([o for o in outputs])
-        mean_loss = torch.mean(losses)
-        
-        pl.utilities.rank_zero_info(
-            f"Valid loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f}"
-        )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """

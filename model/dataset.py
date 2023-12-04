@@ -2,6 +2,7 @@ import copy
 
 from data_preprocessing import protein_to_graph
 from write_preds_pdb.structure_build_score import torsion_to_frame
+from write_preds_pdb.geometry import to_tensor_5x5
 
 import torch
 import numpy as np
@@ -73,13 +74,15 @@ def transform_structure(protein, noise):
                               relative_pos,
                               ],
                              dim=-1).float()
-
+    
     protein.edge_attr = edge_feature
     protein.edge_index = edge_index
-    protein.rigid = rigids
-    protein.local_rigid = local_r
+    protein.rigid = to_tensor_5x5(rigids)
+    protein.local_rigid = to_tensor_5x5(local_r)
+    del local_r
+    del rigids
 
-    return protein, all_frames_to_global
+    return protein, to_tensor_5x5(all_frames_to_global)
 
 class SampleNoiseTransform(BaseTransform):
     def __init__(self):
@@ -148,9 +151,11 @@ def preprocess_datapoints(graph_data=None, raw_dir=None):
         for protein in proteins_list:
             proteins.append(protein_to_graph(protein))
 
+        
         if graph_data:
             print("Store_data at", graph_data)
             with open(graph_data, "wb") as f:
                 pickle.dump(proteins, f)
-       
+                print('finish data preprocess')
+                
     return proteins
