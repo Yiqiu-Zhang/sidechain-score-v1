@@ -74,7 +74,7 @@ class AngleDiffusionBase(nn.Module):
             subfolder = f"best_by_{best_by}"
             ckpt_names = glob.glob(os.path.join(dirname, "models", subfolder, "*.ckpt"))
             logging.info(f"Found {len(ckpt_names)} checkpoints")
-            ckpt_name = ckpt_names[1] # choose which check point
+            ckpt_name = ckpt_names[0] # choose which check point
             logging.info(f"Loading weights from {ckpt_name}")
 
             retval = cls()
@@ -153,13 +153,11 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
         return avg_loss
 
     def training_epoch_end(self, outputs) -> None:
-      #  tracemalloc.start()
+
         """Log the average training loss over the epoch"""
-        losses = torch.stack([o["loss"] for o in outputs])
-        mean_loss = torch.mean(losses)
         t_delta = time.time() - self.train_epoch_last_time
         pl.utilities.rank_zero_info(
-            f"Train loss at epoch {self.train_epoch_counter} end: {mean_loss:.4f} ({t_delta:.2f} seconds)"
+            f"Time at epoch {self.train_epoch_counter} end: ({t_delta:.2f} seconds)"
         )
         # Increment counter and timers
         self.train_epoch_counter += 1
@@ -173,7 +171,7 @@ class AngleDiffusion(AngleDiffusionBase, pl.LightningModule):
             predicted_score = self.forward(batch)
             avg_loss = losses.score_loss(predicted_score, batch)
             
-            self.log("val_loss", avg_loss, on_epoch=True,batch_size=batch.batch_size, rank_zero_only=True)
+        self.log("val_loss", avg_loss, on_epoch=True, batch_size=batch.batch_size, rank_zero_only=True)
         return avg_loss
 
     def configure_optimizers(self) -> Dict[str, Any]:

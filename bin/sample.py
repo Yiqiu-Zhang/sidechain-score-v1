@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import *
 import copy
+from tqdm.auto import tqdm
 
 import torch
 from torch_geometric.loader import DataLoader
@@ -117,9 +118,6 @@ def main() -> None:
     
     assert not os.listdir(outdir), f"Expected {outdir} to be empty!"
 
-    plotdir = outdir / "plots"
-    os.makedirs(plotdir, exist_ok=True)
-
     # Load the model
     model_snapshot_dir = outdir / "model_snapshot"
     model = modelling.AngleDiffusionBase.from_dir(
@@ -128,9 +126,9 @@ def main() -> None:
     
     torch.manual_seed(args.seed)
 
-    #test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
+    test_data_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_data.pkl'
     test_graph_name = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/foldingdiff/test_graph.pkl'
-    graph_data = dataset.preprocess_datapoints(graph_data = test_graph_name)
+    graph_data = dataset.preprocess_datapoints(graph_data = test_graph_name, raw_dir=test_data_name)
 
     sample_transform = dataset.SampleNoiseTransform()
     data = dataset.ProteinDataset(data = graph_data, transform=sample_transform) #, pickle_dir = test_data_name
@@ -138,7 +136,7 @@ def main() -> None:
     outdir_pdb = outdir / "sampled_pdb"
     os.makedirs(outdir_pdb, exist_ok=True)
 
-    for i in range(10):
+    for i in tqdm(range(10)):
         for protein in data:
             
             if len(protein.aatype)>128:

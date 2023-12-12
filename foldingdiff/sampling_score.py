@@ -26,7 +26,7 @@ def p_sample_loop_score(
     sigma_schedule = 10 ** torch.linspace(np.log10(sigma_max), np.log10(sigma_min), steps + 1)[:-1].to('cuda')
     eps = 1 / steps
 
-    for sigma in tqdm(sigma_schedule):
+    for sigma in sigma_schedule:
 
         protein.node_sigma = sigma * torch.ones(protein.num_nodes).to('cuda')
 

@@ -92,14 +92,12 @@ class SampleNoiseTransform(BaseTransform):
     def __call__(self, protein):
 
         corrupted_angles = self.ramdom_sample.sample(protein.true_chi.shape)
-        
         protein, _ = transform_structure(protein, corrupted_angles)
 
         return protein
 
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(sigma_min={self.sigma_min}, '
-                f'sigma_max={self.sigma_max})')
+        return (f'{self.__class__.__name__}')
 
 class TorsionNoiseTransform(BaseTransform):
     def __init__(self, sigma_min=0.01 * np.pi, sigma_max=np.pi):

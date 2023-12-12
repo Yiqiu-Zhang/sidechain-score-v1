@@ -201,7 +201,7 @@ def train(
     trainer.fit(
         model=model,
         datamodule=datamodule,
-        #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/result_122_crossIPA copy/models/best_by_valid/sample-mnist-epoch=226-mean_loss=0.541.ckpt'
+        #ckpt_path = '/mnt/petrelfs/zhangyiqiu/sidechain-score-v1/bin/graphIPA_result1/models/best_by_valid/last.ckpt'
     )
 
 def build_parser() -> argparse.ArgumentParser:
